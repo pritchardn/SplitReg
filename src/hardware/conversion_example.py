@@ -6,9 +6,9 @@ import torch
 # Supress warnings
 import warnings
 from tqdm import tqdm
-from data.data_loaders import HeraDeltaNormLoader
-from data.data_module_builder import DataModuleBuilder
-from data.spike_converters import LatencySpikeConverter
+from src.data.data_loaders import HeraDeltaNormLoader
+from src.data.data_module_builder import DataModuleBuilder
+from src.data.spike_converters import LatencySpikeConverter
 
 # warnings.filterwarnings('ignore')
 
@@ -91,10 +91,10 @@ encoder_config = {
     }
 
 data_source = HeraDeltaNormLoader(
-    "./data", 8, 8, 1.0
+    "./data", 8, 8, 1
 )
 
-encoder = LatencySpikeConverter(16, True)
+encoder = LatencySpikeConverter(16, True, normalize=True)
 
 builder = DataModuleBuilder()
 builder.set_dataset(data_source)
