@@ -6,9 +6,9 @@ import numpy as np
 import torch
 from snntorch import spikegen
 
-from data.data_loaders import HeraDataLoader
-from data.utils import decode_delta_inference
-from interfaces.data.spiking_data_module import SpikeConverter
+from src.data.data_loaders import HeraDataLoader
+from src.data.utils import decode_delta_inference
+from src.interfaces.data.spiking_data_module import SpikeConverter
 
 
 class DeltaSpikeConverter(SpikeConverter):

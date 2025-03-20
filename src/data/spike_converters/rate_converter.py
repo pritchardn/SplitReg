@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from snntorch import spikegen
 
-from interfaces.data.spiking_data_module import SpikeConverter
+from src.interfaces.data.spiking_data_module import SpikeConverter
 
 
 class RateSpikeConverter(SpikeConverter):

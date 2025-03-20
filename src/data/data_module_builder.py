@@ -4,9 +4,9 @@ This module is responsible for building a configured data module.
 
 import torch
 from torch.utils.data import TensorDataset
-from data.data_module import ConfiguredDataModule
-from interfaces.data.raw_data_loader import RawDataLoader
-from interfaces.data.spiking_data_module import SpikeConverter
+from src.data.data_module import ConfiguredDataModule
+from src.interfaces.data.raw_data_loader import RawDataLoader
+from src.interfaces.data.spiking_data_module import SpikeConverter
 
 
 class DataModuleBuilder:

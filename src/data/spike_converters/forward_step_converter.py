@@ -6,8 +6,8 @@ import numpy as np
 import torch
 
 from snntorch import spikegen
-from data.data_loaders import HeraDataLoader
-from interfaces.data.spiking_data_module import SpikeConverter
+from src.data.data_loaders import HeraDataLoader
+from src.interfaces.data.spiking_data_module import SpikeConverter
 
 
 class ForwardStepConverter(SpikeConverter):

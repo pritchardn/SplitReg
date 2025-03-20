@@ -4,7 +4,7 @@ A non-converting encoder and decoder for ANN inference, which does not work with
 
 import numpy as np
 
-from interfaces.data.spiking_data_module import SpikeConverter
+from src.interfaces.data.spiking_data_module import SpikeConverter
 
 
 class NonConverter(SpikeConverter):
