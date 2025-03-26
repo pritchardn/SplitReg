@@ -32,7 +32,7 @@ def split_model(model: nir.NIRGraph, hw_config: dict, num_splits: int=2):
                 {'output': np.array([n_out])},
                 {}
             )
-        out_weight[f"layers_{i * 2 + 1}"] = lif_layer
+            out_weight[f"layers_{i * 2 + 1}"] = lif_layer
     # Append output layers
     for out_weight in out_weights:
         out_weight["output"] = nir.Output({"output": output_size})
@@ -47,8 +47,8 @@ def split_model(model: nir.NIRGraph, hw_config: dict, num_splits: int=2):
 
 if __name__ == "__main__":
     # Load example model
-    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_69/model.nir")
-    nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
+    nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_69/model.nir")
+    # nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
     # Send into split
     models = split_model(nir_model, {"out_layer": {"NN": 4}, "in_layer": {"NN": 4}}, num_splits=4)
     # Load into SNNTorch
