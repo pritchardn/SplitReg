@@ -18,10 +18,10 @@ from sklearn.metrics import (
 )
 from tqdm import tqdm
 
-from data.data_module import ConfiguredDataModule
-from data.utils import reconstruct_patches, ensure_tflow
-from interfaces.data.spiking_data_module import SpikeConverter
-from plotting import plot_final_examples
+from src.data.data_module import ConfiguredDataModule
+from src.data.utils import reconstruct_patches, ensure_tflow
+from src.interfaces.data.spiking_data_module import SpikeConverter
+from src.plotting import plot_final_examples
 
 
 def plot_example_raster(
