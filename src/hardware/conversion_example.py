@@ -225,7 +225,6 @@ def evaluate_model(xylo_model, dataset, encoder):
         auroc += b_auroc
         auprc += b_auprc
         f1 += b_f1
-        print(b_accuracy, b_mse, b_auroc, b_auprc, b_f1)
     print(dataset_len)
     print(accuracy, mse, auroc, auprc, f1)
     accuracy /= dataset_len
