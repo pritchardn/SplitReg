@@ -1,8 +1,10 @@
 import numpy as np
 import nir
+import samna
 import torch
 import warnings
 from tqdm import tqdm
+from time import sleep
 
 # Rockpool imports
 from rockpool.nn.modules import from_nir, LinearTorch, LIFNeuronTorch
@@ -233,6 +235,49 @@ def evaluate_model(xylo_model, dataset, encoder):
     auprc /= dataset_len
     f1 /= dataset_len
     return {"accuracy": accuracy, "mse": mse, "auroc": auroc, "auprc": auprc, "f1": f1}
+
+def evaluate_idle_power(xylo_model):
+    """
+    Evaluates the idle power consumption of real xylo_hardware
+    """
+    print("Evaluating idle power consumption")
+    xylo_model._power_buf.get_events()
+    sleep(5.)
+    power = xylo_model._power_buf.get_events()
+    power_idle = ([], [], [], [])
+    for p in power:
+        power_idle[p.channel].append(p.value)
+    idle_power_per_channel = np.mean(np.stack(power_idle), axis=1)
+    channels = samna.xyloA2TestBoard.MeasurementChannels
+    io_power = idle_power_per_channel[channels.Io]
+    afe_core_power = idle_power_per_channel[channels.LogicAfe]
+    afe_ldo_power = idle_power_per_channel[channels.IoAfe]
+    snn_core_power = idle_power_per_channel[channels.Logic]
+    print(f'XyloAudio 2\nAll IO:\t\t{io_power * 1e6:.1f} µW\nAFE core:\t{afe_core_power * 1e6:.1f} µW\nInternal LDO:\t{afe_ldo_power * 1e6:.1f} µW\nSNN core logic:\t{snn_core_power*1e6:.1f} µW')
+    return idle_power_per_channel
+
+def evaluate_power(xylo_model, dataset, encoder):
+    print("Evaluating active power consumption")
+    xylo_model._power_buf.get_events()
+    # Run through inference TODO: make batched
+    for x, y in tqdm(dataset.test_dataloader(), desc="Evaluating"):
+        x = x.detach().cpu().numpy().astype(np.int16)
+        for ex in x:
+            output = []
+            for t in range(x.shape[-1]):
+                output.append(xylo_model(ex[..., t].squeeze(1))[0])
+    power = xylo_model._power_buf.get_events()
+    power_active = ([], [], [], [])
+    for p in power:
+        power_active[p.channel].append(p.value)
+    active_power_per_channel = np.mean(np.stack(power_active), axis=1)
+    channels = samna.xyloA2TestBoard.MeasurementChannels
+    io_power = active_power_per_channel[channels.Io]
+    afe_core_power = active_power_per_channel[channels.LogicAfe]
+    afe_ldo_power = active_power_per_channel[channels.IoAfe]
+    snn_core_power = active_power_per_channel[channels.Logic]
+    print(f'XyloAudio 2\nAll IO:\t\t{io_power * 1e6:.1f} µW\nAFE core:\t{afe_core_power * 1e6:.1f} µW\nInternal LDO:\t{afe_ldo_power * 1e6:.1f} µW\nSNN core logic:\t{snn_core_power*1e6:.1f} µW')
+    return active_power_per_channel
 
 def main():
     rockpool_model = load_and_convert_model(NIR_MODEL_PATH, NUM_LAYERS, NUM_HIDDEN, NUM_OUTPUT)
