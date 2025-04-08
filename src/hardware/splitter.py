@@ -1,9 +1,11 @@
-import numpy as np
 import nir
-import torch
+import numpy as np
+import snntorch
+import warnings
 from nir import NIRGraph
 from rockpool.nn.modules import from_nir
-import snntorch
+
+from src.hardware.conversion_example import hardware_conversion, setup_xylo
 
 alg_config = {
     "mode": "io_tied",
@@ -12,11 +14,11 @@ alg_config = {
 
 xylo_hw_config = {
     "input": {
-        "num_neurons": 4,
+        "num_neurons": 8,
         "fan_out": 63
     },
     "output": {
-        "num_neurons": 4,
+        "num_neurons": 8,
         "fan_in": 63,
     },
     "hidden": {
@@ -24,7 +26,8 @@ xylo_hw_config = {
         "fan_out": 63,
         "num_neurons": 1000,
         "num_neurons_layer": -1,
-        "num_layers": -1
+        "num_layers": -1,
+        "max_connections": 32000,
     }
 }
 
@@ -75,6 +78,15 @@ def num_hidden_neurons(current_weights: dict):
             num_neurons += len(neurons)
     return num_neurons
 
+def num_hidden_connections(current_weights: dict, num_inputs: int, num_outputs: int):
+    connection_count = 0
+    num_layers = len(current_weights.keys())
+    for i in range(1,num_layers):
+        curr_layer_neurons = len(current_weights[i].keys())
+        prev_layer_neurons = len(current_weights[i - 1].keys())
+        connection_count += curr_layer_neurons * prev_layer_neurons
+    return connection_count
+
 def find_least_important_neuron(maximal_weights: dict):
     min_neuron = -1
     min_importance = float("inf")
@@ -91,10 +103,11 @@ def find_least_important_neuron_layer(maximal_weights: dict, layer: int):
     min_neuron = -1
     min_importance = float("inf")
     for neuron, weight in maximal_weights[layer].items():
+        weight /= len(maximal_weights[layer].keys())
         if weight < min_importance:
             min_importance = weight
             min_neuron = neuron
-    return min_neuron, min_importance / len(maximal_weights[layer].keys())
+    return min_neuron, min_importance
 
 def remove_target_backwards(target: int, maximal_weights: dict, neuron_index: dict, layer: int):
     maximal_weights[layer].pop(target)
@@ -166,7 +179,7 @@ def cull_weights_backwards(maximal_weights: dict, neuron_index: dict, model: NIR
     return output, new_neuron_index
 
 def cull_weights_forwards(maximal_weights: dict, neuron_index: dict, model: NIRGraph, hw_config: dict):
-    max_neurons = 4  # TODO: Make input size
+    max_neurons = hw_config["input"]["num_neurons"]
     curr_neurons = len(maximal_weights[0].keys())
     output = maximal_weights.copy()
     new_neuron_index = neuron_index.copy()
@@ -175,6 +188,23 @@ def cull_weights_forwards(maximal_weights: dict, neuron_index: dict, model: NIRG
         output, new_neuron_index = remove_target_forwards(target_neuron, output, new_neuron_index, 0)
         curr_neurons = len(output[0].keys())
     return output, new_neuron_index
+
+
+def cull_connections(maximal_weights: dict, neuron_index: dict, hw_config: dict, input_bundle: list, output_bundle: list):
+    max_connections = hw_config["hidden"]["max_connections"]
+    # Find num inputs
+    num_inputs = len(input_bundle)
+    # Find num outputs
+    num_outputs = len(output_bundle)
+    curr_connections = num_hidden_connections(maximal_weights, num_inputs, num_outputs)
+    output = maximal_weights.copy()
+    new_neuron_index = neuron_index.copy()
+    while curr_connections > max_connections:
+        target_neuron, target_weight, target_layer = find_least_important_neuron(output)
+        output, new_neuron_index = remove_target_backwards(target_neuron, output, new_neuron_index, target_layer)
+        curr_connections = num_hidden_connections(output, num_inputs, num_outputs)
+    return output, new_neuron_index
+
 
 def reindex_weights(model: nir.NIRGraph, maximal_weights: dict, neuron_index: dict, input_bundle: list, output_bundle: list):
     out_layers = {}
@@ -190,7 +220,7 @@ def reindex_weights(model: nir.NIRGraph, maximal_weights: dict, neuron_index: di
         try:
             bias = model.nodes[f"layers_{i * 2}"].bias[o_indx]
         except AttributeError as e:
-            bias = np.zeros((weights.shape[0],))
+            bias = np.zeros((weights.shape[0],))  # Only required if converting to snntorch after
         out_layers[f"layers_{i * 2}"] = (nir.Affine(
             weights,
             bias,
@@ -226,6 +256,7 @@ def split_model_configured(model: nir.NIRGraph, hw_config: dict, split_config: d
         new_weights_max = find_maximal_valid_weights(neuron_index, output_bundles[i])  # Just for experiment sake
         new_weights_culled, new_neuron_index = cull_weights_backwards(new_weights_max, neuron_index, model, hw_config)
         new_weights_culled, new_neuron_index = cull_weights_forwards(new_weights_culled, new_neuron_index, model, hw_config)
+        new_weight_culled, new_neuron_index = cull_connections(new_weights_culled, new_neuron_index, hw_config, input_bundles[i], output_bundles[i])
         # Rebuild weight matrices
         out_weights[i] = reindex_weights(model, new_weights_culled, new_neuron_index, input_bundles[i], output_bundles[i])
         out_weights[i]["input"] = nir.Input({"input": input_size, "bundle": input_bundles[i]})
@@ -238,58 +269,34 @@ def split_model_configured(model: nir.NIRGraph, hw_config: dict, split_config: d
         )
     return models
 
-def split_model(model: nir.NIRGraph, hw_config: dict, num_splits: int=2):
-    out_layer_NN = hw_config["out_layer"]["NN"]
-    in_layer_NN = hw_config["in_layer"]["NN"]
-    # We don't care about f_in/out yet
+def convert_rockpool(model: nir.NIRGraph):
     num_layers = (len(model.nodes) - 2) // 2
-    # We'll also start by splitting a model in half.
-    out_weights = [{} for _ in range(num_splits)]
-    input_size = model.nodes["input"].input_type["input"]
-    input_size[-2] //= num_splits
-    output_size = model.nodes["output"].output_type["output"]
-    output_size[-1] //= num_splits
-    # Add inputs
-    for out_weight in out_weights:
-        out_weight["input"] = nir.Input({"input": input_size})
     for i in range(num_layers):
-        weight_layer = model.nodes[f"layers_{i * 2}"]
-        lif_layer = model.nodes[f"layers_{i * 2 + 1}"]
-        n_out = weight_layer.weight.shape[0] // num_splits
-        n_in = weight_layer.weight.shape[1] // num_splits
-        for j, out_weight in enumerate(out_weights):
-            out_weight[f"layers_{i * 2}"] = nir.Affine(
-                weight_layer.weight[n_out * j:n_out * (j + 1), n_in * j:n_in * (j+1)],
-                weight_layer.bias[n_out * j:n_out * (j + 1)],
-                {'input': np.array([n_in])},
-                {'output': np.array([n_out])},
-                {}
-            )
-            out_weight[f"layers_{i * 2 + 1}"] = lif_layer
-    # Append output layers
-    for out_weight in out_weights:
-        out_weight["output"] = nir.Output({"output": output_size})
-    # Create new NIR models
-    models = []
-    for out_weight in out_weights:
-        models.append(
-            nir.NIRGraph(nodes=out_weight, edges=model.edges.copy(), input_type={'input': input_size}, output_type={'output': output_size}, metadata={})
-        )
-    return models
-
+        lif_node_name = f"layers_{i * 2 + 1}"
+        affine_node_name = f"layers_{i * 2}"
+        num_neurons = model.nodes[affine_node_name].weight.shape[0]
+        shape = np.array([num_neurons])
+        model.nodes[lif_node_name].output_type["output"] = shape
+        model.nodes[lif_node_name].input_type["input"] = shape
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)
+        rockpool_model = from_nir(model)
+    return rockpool_model
 
 if __name__ == "__main__":
     # Load example model
     nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_171/model.nir")
     # nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
     # Send into split
-    # models = split_model(nir_model, {"out_layer": {"NN": 4}, "in_layer": {"NN": 4}}, num_splits=4)
     models  = split_model_configured(nir_model, xylo_hw_config, alg_config)
     # Load into SNNTorch
     snn_models = []
     for model in models:
         snn_models.append(snntorch.import_from_nir(model))
     # Load into Rockpool
-    # rockpool_model_1 = from_nir(out_model_2)
-    # rockpool_model_2 = from_nir(out_model_2)
-    pass
+    rockpool_models = []
+    for model in models:
+        rockpool_models.append(convert_rockpool(model))
+        rockpool_model = rockpool_models[-1]
+        config, _ = hardware_conversion(rockpool_model)
+        xylo_model = setup_xylo(config, dt=1e-4, use_simulator=True)
