@@ -4,8 +4,13 @@ import snntorch
 import warnings
 from nir import NIRGraph
 from rockpool.nn.modules import from_nir
+import lightning.pytorch as pl
 
+from src.data.data_loaders import HeraDeltaNormLoader
+from src.data.data_module_builder import DataModuleBuilder
+from src.data.spike_converters import LatencySpikeConverter
 from src.hardware.conversion_example import hardware_conversion, setup_xylo
+from src.models.fc_hivemind import LitFcHiveMind
 
 alg_config = {
     "mode": "io_tied",
@@ -263,11 +268,11 @@ def split_model_configured(model: nir.NIRGraph, hw_config: dict, split_config: d
         out_weights[i]["output"] = nir.Output({"output": output_size, "bundle": output_bundles[i]})
     # Build NIR models
     models = []
-    for out_weight in out_weights:
+    for i, out_weight in enumerate(out_weights):
         models.append(
-            nir.NIRGraph(nodes=out_weight, edges=model.edges.copy(), input_type={'input': input_size}, output_type={'output': output_size}, metadata={})
+            nir.NIRGraph(nodes=out_weight, edges=model.edges.copy(), input_type={'input': input_size}, output_type={'output': output_size}, metadata={'input_bundle': input_bundles[i], 'output_bundle': output_bundles[i]})
         )
-    return models
+    return models, input_bundles, output_bundles
 
 def convert_rockpool(model: nir.NIRGraph):
     num_layers = (len(model.nodes) - 2) // 2
@@ -283,20 +288,65 @@ def convert_rockpool(model: nir.NIRGraph):
         rockpool_model = from_nir(model)
     return rockpool_model
 
+
+def setup_test_data(data_path: str, batch_size: int, patch_size: int, stride: int, limit: float, encoder_params: dict):
+    """
+    Sets up data loader, encoder and data module
+    TODO: Masked dataloader based on model
+    """
+    print("Setting up data loader")
+    data_source = HeraDeltaNormLoader(
+        data_path, limit, patch_size, stride
+    )
+    # Assuming latency encoding
+    encoder = LatencySpikeConverter(
+        encoder_params["exposure"],
+        encoder_params["tau"],
+        encoder_params["normalize"]
+    )
+
+    print("Building data module")
+    builder = DataModuleBuilder()
+    builder.set_dataset(data_source)
+    builder.set_encoding(encoder)
+    dataset = builder.build(batch_size=batch_size)
+    print("Data module ready")
+    return dataset, encoder
+
 if __name__ == "__main__":
     # Load example model
     nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_171/model.nir")
     # nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
     # Send into split
-    models  = split_model_configured(nir_model, xylo_hw_config, alg_config)
+    models, input_bundles, output_bundles  = split_model_configured(nir_model, xylo_hw_config, alg_config)
     # Load into SNNTorch
     snn_models = []
     for model in models:
         snn_models.append(snntorch.import_from_nir(model))
     # Load into Rockpool
     rockpool_models = []
+    xylo_models = []
     for model in models:
         rockpool_models.append(convert_rockpool(model))
         rockpool_model = rockpool_models[-1]
         config, _ = hardware_conversion(rockpool_model)
         xylo_model = setup_xylo(config, dt=1e-4, use_simulator=True)
+        xylo_models.append(xylo_model)
+    trainer = pl.trainer.Trainer(
+            max_epochs=10,
+            benchmark=True,
+            default_root_dir="./",
+            num_nodes=1,
+            accelerator="cpu",
+            log_every_n_steps=4
+    )
+    encoder_config = {
+        "method": "LATENCY",
+        "exposure": 16,
+        "tau": 1.0,
+        "normalize": True,
+    }
+    dataset, encoder = setup_test_data("./data", 1, 512, 512, 0.1, encoder_config,)
+    hive_model = LitFcHiveMind(xylo_models, input_bundles, output_bundles, encoder)
+    metrics = trainer.test(hive_model, dataset.test_dataloader())
+    pass
