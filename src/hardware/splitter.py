@@ -64,7 +64,7 @@ def build_neuron_index(model: nir.NIRGraph, hw_config: dict, mode="maximal"):
                 best_inputs_indx = np.random.choice(weight.shape[0], curr_fan_out, replace=False)
             elif mode == "naive":
                 bottom = max(0, i - curr_fan_out // 2)
-                top = min(weight.shape[0], i + curr_fan_out // 2 + (1 if curr_fan_out % 2 != 0 else 0))
+                top = min(weight.shape[0], i + curr_fan_out // 2)
                 if (top - i) < (i - bottom):  # Decrease bottom
                     bottom -= (curr_fan_out // 2) - (top - i)
                 elif (top - i) > (i - bottom): # Increase top
@@ -75,8 +75,10 @@ def build_neuron_index(model: nir.NIRGraph, hw_config: dict, mode="maximal"):
             else:
                 raise ValueError(f"unknown mode {mode}")
             best_inputs = weight[best_inputs_indx]
+            assert len(best_inputs) <= curr_fan_out
             for neighbour, w in zip(best_inputs_indx, best_inputs):
                 output[layer].setdefault(i, dict())[int(neighbour)] = w
+    check_neuron_index_valid(output)
     return output
 
 def find_maximal_valid_weights(neuron_index: dict, output_targets: list[int]):
@@ -97,6 +99,7 @@ def num_hidden_neurons(current_weights: dict):
         if layer != 0:
             num_neurons += len(neurons)
     return num_neurons
+
 
 def num_hidden_connections(current_weights: dict, num_inputs: int, num_outputs: int):
     connection_count = 0
@@ -119,12 +122,16 @@ def find_least_important_neuron(maximal_weights: dict):
             min_layer = layer
     return min_neuron, min_importance, min_layer
 
-def find_random_neuron(maximal_weights: dict, layer: int=None):
+def find_random_neuron(maximal_weights: dict, min_input_width: int, layer: int=None):
     if layer is None:
         layer_sizes = [len(weights) for layer_idx, weights in maximal_weights.items()]
+        choices = list(maximal_weights.keys())
+        if layer_sizes[0] == min_input_width:
+            layer_sizes.pop(0)
+            choices.pop(0)
         total_size = sum(layer_sizes)
         probabilities = [size / total_size for size in layer_sizes]
-        selected_layer = np.random.choice(list(maximal_weights.keys()), p=probabilities)
+        selected_layer = np.random.choice(choices, p=probabilities)
     else:
         selected_layer = layer
     selected_neuron = np.random.choice(list(maximal_weights[selected_layer].keys()))
@@ -174,6 +181,11 @@ def remove_target_backwards(target: int, maximal_weights: dict, neuron_index: di
         prev_layer -= 1
     return maximal_weights, neuron_index
 
+def check_neuron_index_valid(neuron_index: dict):
+    for layer, i in neuron_index.items():
+        for j, weights in i.items():
+            assert len(weights) <= 63
+
 def remove_target_forwards(target: int, maximal_weights: dict, neuron_index: dict, layer: int):
     maximal_weights[layer].pop(target)
     targets = [target]
@@ -202,8 +214,7 @@ def remove_target_forwards(target: int, maximal_weights: dict, neuron_index: dic
         next_layer += 1
     return maximal_weights, neuron_index
 
-def cull_weights_backwards(maximal_weights: dict, neuron_index: dict, model: NIRGraph, hw_config: dict, mode: str):
-    max_neurons = hw_config["hidden"]["num_neurons"]
+def cull_weights_backwards(maximal_weights: dict, neuron_index: dict, max_neurons: int, min_input_width: int, mode: str):
     num_layers = len(neuron_index.keys())
     curr_neurons = num_hidden_neurons(maximal_weights)
     if curr_neurons < max_neurons:
@@ -213,10 +224,11 @@ def cull_weights_backwards(maximal_weights: dict, neuron_index: dict, model: NIR
     while curr_neurons > max_neurons:
         # Find target important neuron
         target = -1
+        target_layer = -1
         if mode == "maximal":
             target, target_importance, target_layer = find_least_important_neuron(output)
         elif mode == "random":
-            target, target_importance, target_layer = find_random_neuron(output)
+            target, target_importance, target_layer = find_random_neuron(output, min_input_width)
         elif mode == "naive":
             target, target_importance, target_layer = find_naive_neuron(output)
         assert target != -1
@@ -226,6 +238,30 @@ def cull_weights_backwards(maximal_weights: dict, neuron_index: dict, model: NIR
         curr_neurons = num_hidden_neurons(output)
     return output, new_neuron_index
 
+def cull_output_fan_in(maximal_weights: dict, neuron_index: dict, max_fan_in: int, min_input_width: int, mode: str):
+    num_layers = len(neuron_index.keys())
+    curr_neurons = num_hidden_neurons({1: maximal_weights[num_layers - 1]})
+    if curr_neurons < max_fan_in:
+        return maximal_weights, neuron_index
+    output = maximal_weights.copy()
+    new_neuron_index = neuron_index.copy()
+    while curr_neurons > max_fan_in:
+        # Find target important neuron
+        target = -1
+        target_layer = num_layers - 1
+        if mode == "maximal":
+            target, target_importance = find_least_important_neuron_layer(output, layer=target_layer)
+        elif mode == "random":
+            target, target_importance, target_layer = find_random_neuron(output, min_input_width, layer=target_layer)
+        elif mode == "naive":
+            target, target_importance, target_layer = find_naive_neuron(output, layer=target_layer)
+        assert target != -1
+        # Remove target
+        output, new_neuron_index = remove_target_backwards(target, output, new_neuron_index, target_layer)
+        # Cull recursively
+        curr_neurons = num_hidden_neurons({1: maximal_weights[num_layers - 1]})
+    return output, new_neuron_index
+
 def cull_weights_forwards(maximal_weights: dict, neuron_index: dict, model: NIRGraph, hw_config: dict, mode: str):
     max_neurons = hw_config["input"]["num_neurons"]
     curr_neurons = len(maximal_weights[0].keys())
@@ -233,11 +269,11 @@ def cull_weights_forwards(maximal_weights: dict, neuron_index: dict, model: NIRG
     new_neuron_index = neuron_index.copy()
     while curr_neurons > max_neurons:
         if mode == "maximal":
-            target_neuron, target_weight = find_least_important_neuron_layer(output, 0)
+            target_neuron, _ = find_least_important_neuron_layer(output, 0)
         elif mode == "random":
-            target_neuron, _, target_weight = find_random_neuron(output, layer=0)
+            target_neuron, _, _ = find_random_neuron(output, max_neurons, layer=0)
         elif mode == "naive":
-            target_neuron, _, target_weight = find_naive_neuron(output, layer=0)
+            target_neuron, _, _ = find_naive_neuron(output, layer=0)
         else:
             raise ValueError(f"Unknown")
         output, new_neuron_index = remove_target_forwards(target_neuron, output, new_neuron_index, 0)
@@ -247,6 +283,7 @@ def cull_weights_forwards(maximal_weights: dict, neuron_index: dict, model: NIRG
 
 def cull_connections(maximal_weights: dict, neuron_index: dict, hw_config: dict, input_bundle: list, output_bundle: list, mode: str):
     max_connections = hw_config["hidden"]["max_connections"]
+    min_input_width = hw_config["input"]["num_neurons"]
     # Find num inputs
     num_inputs = len(input_bundle)
     # Find num outputs
@@ -259,14 +296,13 @@ def cull_connections(maximal_weights: dict, neuron_index: dict, hw_config: dict,
         if mode == "maximal":
             target_neuron, target_weight, target_layer = find_least_important_neuron(output)
         elif mode == "random":
-            target_neuron, target_weight, target_layer = find_random_neuron(output)
+            target_neuron, target_weight, target_layer = find_random_neuron(output, min_input_width)
         elif mode == "naive":
             target_neuron, target_weight, target_layer = find_naive_neuron(output)
         assert target_neuron != -1
         output, new_neuron_index = remove_target_backwards(target_neuron, output, new_neuron_index, target_layer)
         curr_connections = num_hidden_connections(output, num_inputs, num_outputs)
     return output, new_neuron_index
-
 
 def reindex_weights(model: nir.NIRGraph, maximal_weights: dict, neuron_index: dict, input_bundle: list, output_bundle: list):
     out_layers = {}
@@ -318,10 +354,12 @@ def split_model_configured(model: nir.NIRGraph, hw_config: dict, split_config: d
     out_weights = [{} for _ in range(num_models)]
     # Initialize output models
     neuron_index = build_neuron_index(model, hw_config, mode=mode)
+    min_input_width = hw_config["input"]["num_neurons"]
     for i in range(num_models):
         new_weights_max = find_maximal_valid_weights(neuron_index, output_bundles[i])  # Just for experiment sake
-        new_weights_culled, new_neuron_index = cull_weights_backwards(new_weights_max, neuron_index, model, hw_config, mode=mode)
+        new_weights_culled, new_neuron_index = cull_weights_backwards(new_weights_max, neuron_index, hw_config["hidden"]["num_neurons"], min_input_width, mode=mode)
         new_weights_culled, new_neuron_index = cull_weights_forwards(new_weights_culled, new_neuron_index, model, hw_config, mode=mode)
+        new_weights_culled, new_neuron_index = cull_output_fan_in(new_weights_culled, new_neuron_index, hw_config["output"]["fan_in"], min_input_width, mode=mode)
         new_weight_culled, new_neuron_index = cull_connections(new_weights_culled, new_neuron_index, hw_config, input_bundles[i], output_bundles[i], mode=mode)
         # Rebuild weight matrices
         out_weights[i] = reindex_weights(model, new_weights_culled, new_neuron_index, input_bundles[i], output_bundles[i])
@@ -379,7 +417,7 @@ if __name__ == "__main__":
     nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_171/model.nir")
     # nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
     # Send into split
-    models, input_bundles, output_bundles  = split_model_configured(nir_model, xylo_hw_config, alg_config, mode="maximal")
+    models, input_bundles, output_bundles  = split_model_configured(nir_model, xylo_hw_config, alg_config, mode="random")
     # Load into SNNTorch
     snn_models = []
     for model in models:
