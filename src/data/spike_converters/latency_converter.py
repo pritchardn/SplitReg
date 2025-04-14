@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from snntorch import spikegen
 
-from src.interfaces.data.spiking_data_module import SpikeConverter
+from interfaces.data.spiking_data_module import SpikeConverter
 
 
 class LatencySpikeConverter(SpikeConverter):
@@ -30,7 +30,7 @@ class LatencySpikeConverter(SpikeConverter):
                 frame, num_steps=self.exposure, tau=self.tau, normalize=True
             )
             frame = np.moveaxis(frame.numpy(), -1, 1)
-            frame[self.exposure - 1, ...] = 0
+            # frame[self.exposure - 1, ...] = 0
             output[i] = frame
         return output.astype("float32")
 

@@ -36,6 +36,12 @@ class BaseLitModel(pl.LightningModule):
         self.num_layers = num_layers
         self.recurrent = recurrent
         self.regularization = None
+        self.max_fan_in = 63
+        self.max_connections = 32000
+        self.l2_weighting = 1e-5
+        self.l1_weighting = 0.001
+        self.fan_in_weighting = 0.2
+        self.max_connection_weighting = 0.2
 
         self.layers = self._init_layers()
 
@@ -79,8 +85,32 @@ class BaseLitModel(pl.LightningModule):
     def forward(self, x):
         pass
 
+    def fan_in_penalty(self):
+        # For each layer
+        epsilon = torch.finfo(torch.float32).eps
+        penalty = torch.scalar_tensor(0.0, requires_grad=True)
+        for layer in self.layers[0:self.num_layers * 2:2]:
+            penalty = penalty.add(torch.clip(torch.mean((torch.abs(layer.weight) > epsilon).float().sum(dim=1).subtract(self.max_fan_in), dim=0).divide(self.max_fan_in).subtract(1.0), 0.0, 1.0))
+        return penalty.divide(self.num_layers)
+
+    def total_connection_penalty(self):
+        epsilon = torch.finfo(torch.float32).eps
+        penalty = torch.scalar_tensor(0.0, requires_grad=True)
+        for layer in self.layers[0:self.num_layers * 2:2]:
+            penalty = penalty.add((torch.abs(layer.weight) > epsilon).float().sum(dim=1).sum(dim=0))
+        penalty.subtract(self.max_connections)
+        return torch.clip(penalty.divide(self.max_connections).subtract(1.0), 0.0, 1.0)
+
     def calc_loss(self, y_hat, y):
         loss = self.loss(y_hat, y)
+        fan_in_penalty = self.fan_in_penalty()
+        total_connection_penalty = self.total_connection_penalty()
+        self.log("fan_in_penalty", fan_in_penalty, sync_dist=True)
+        self.log("total_connection_penalty", total_connection_penalty, sync_dist=True)
+        loss += self.fan_in_weighting * fan_in_penalty # TODO: lambda parameter
+        loss += self.max_connection_weighting * total_connection_penalty
+        l1_norm = sum(p.abs().sum() for p in self.parameters())
+        loss += self.l1_weighting * l1_norm
         if self.regularization:
             for reg_method in self.regularization:
                 loss += reg_method(y_hat)
@@ -121,7 +151,7 @@ class BaseLitModel(pl.LightningModule):
         return accuracy, mse, auroc, auprc, f1
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=self.l2_weighting)
         scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=10)
         return {
             "optimizer": optimizer,
