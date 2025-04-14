@@ -36,6 +36,12 @@ def objective(trial):
     config["encoder"]["method"] = os.getenv("ENCODER_METHOD", "LATENCY")
     config["encoder"]["exposure_mode"] = os.getenv("FORWARD_EXPOSURE", "latency")
 
+    # Regularization parameters
+    config["model"]["l1_weighting"] = trial.suggest_float(0.0, 1.0)
+    config["model"]["l2_weighting"] = trial.suggest_float(0.0, 1.0)
+    config["model"]["fan_in_weighting"] = trial.suggest_float(0.0, 1.0)
+    config["model"]["max_connections_weighting"] = trial.suggest_float(0.0, 1.0)
+
     if model_type != "FC_ANN":
         config["model"]["beta"] = trial.suggest_float("beta", 0.0, 1.0)
         config["encoder"]["exposure"] = trial.suggest_int("exposure", 1, 64)
