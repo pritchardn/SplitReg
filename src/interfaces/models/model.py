@@ -26,6 +26,12 @@ class BaseLitModel(pl.LightningModule):
         beta: float,
         num_layers: int,
         recurrent: bool,
+        l1_weighting: float,
+        l2_weighting: float,
+        fan_in_weighting: float,
+        max_connections_weighting: float,
+        max_fan_in: int,
+        max_connections: int,
     ):
         super().__init__()
         self.converter = None
@@ -168,10 +174,16 @@ class LitModel(BaseLitModel):
         num_outputs: int,
         beta: float,
         num_layers: int,
+        l1_weighting: float,
+        l2_weighting: float,
+        fan_in_weighting: float,
+        max_connections_weighting: float,
+        max_fan_in: int,
+        max_connections: int,
         recurrent: bool = False,
     ):
         super().__init__(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent
+            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections
         )
 
     def _infer_slice(self, x, membranes):

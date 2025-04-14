@@ -20,10 +20,16 @@ class LitFcDelta(LitModel):
         reconstruct_loss: bool,
         off_spikes: bool,
         num_layers: int,
+        l1_weighting: float,
+        l2_weighting: float,
+        fan_in_weighting: float,
+        max_connections_weighting: float,
+        max_fan_in: int,
+        max_connections: int,
         recurrent: bool = False,
     ):
         super().__init__(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent
+            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent
         )
         if off_spikes:
             if num_outputs != num_inputs * 2:

@@ -14,15 +14,21 @@ DEFAULT_HERA_LATENCY = {
         "dataset": "HERA",
     },
     "dataset": {
-        "batch_size": 36,
+        "batch_size": 4,
     },
     "model": {
         "type": "FC_LATENCY",
         "num_inputs": 32,
-        "num_hidden": 128,
+        "num_hidden": 256,
         "num_outputs": 32,
-        "num_layers": 6,
+        "num_layers": 3,
         "beta": 0.245507490258551,
+        "l1_weighting": 0.0,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.0,
+        "max_connections_weighting": 0.0,
+        "max_fan_in": 63,
+        "max_connections": 32000,
     },
     "trainer": {
         "epochs": 100,
@@ -81,11 +87,11 @@ DEFAULT_HERA_LATENCY_MH = {
 }
 
 DEFAULT_HERA_LATENCY_DIVNORM = copy.deepcopy(DEFAULT_HERA_LATENCY)
-DEFAULT_HERA_LATENCY_DIVNORM["model"]["num_hidden"] = 256
+# DEFAULT_HERA_LATENCY_DIVNORM["model"]["num_hidden"] = 256
 DEFAULT_HERA_LATENCY_DIVNORM["model"]["beta"] = 0.239039586173328
 DEFAULT_HERA_LATENCY_DIVNORM["model"]["num_layers"] = 5
 DEFAULT_HERA_LATENCY_DIVNORM["data_source"]["delta_normalization"] = True
-DEFAULT_HERA_LATENCY_DIVNORM["encoder"]["exposure"] = 4
+# DEFAULT_HERA_LATENCY_DIVNORM["encoder"]["exposure"] = 4
 
 DEFAULT_LOFAR_LATENCY_DIVNORM = copy.deepcopy(DEFAULT_LOFAR_LATENCY)
 DEFAULT_LOFAR_LATENCY_DIVNORM["model"]["num_hidden"] = 256
@@ -112,6 +118,12 @@ DEFAULT_HERA_RATE = {
         "num_outputs": 32,
         "num_layers": 2,
         "beta": 0.599215428763344,
+        "l1_weighting": 0.0,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.0,
+        "max_connections_weighting": 0.0,
+        "max_fan_in": 63,
+        "max_connections": 32000,
     },
     "trainer": {
         "epochs": 50,
@@ -148,6 +160,12 @@ DEFAULT_HERA_DELTA = {
         "num_layers": 2,
         "beta": 0.504376656494665,
         "reconstruct_loss": False,
+        "l1_weighting": 0.0,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.0,
+        "max_connections_weighting": 0.0,
+        "max_fan_in": 63,
+        "max_connections": 32000,
     },
     "trainer": {
         "epochs": 80,
@@ -181,6 +199,12 @@ DEFAULT_HERA_DELTA_ON = {
         "num_layers": 2,
         "beta": 0.7270826938643781,
         "reconstruct_loss": False,
+        "l1_weighting": 0.0,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.0,
+        "max_connections_weighting": 0.0,
+        "max_fan_in": 63,
+        "max_connections": 32000,
     },
     "trainer": {
         "epochs": 50,
@@ -213,6 +237,12 @@ DEFAULT_HERA_DELTA_EXPOSURE = {
         "num_outputs": 32,
         "num_layers": 5,
         "beta": 0.70365295492966,
+        "l1_weighting": 0.0,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.0,
+        "max_connections_weighting": 0.0,
+        "max_fan_in": 63,
+        "max_connections": 32000,
     },
     "trainer": {
         "epochs": 100,
@@ -263,6 +293,12 @@ DEFAULT_HERA_FORWARD = {
         "num_outputs": 32,
         "num_layers": 6,
         "beta": 0.10223713665629142,
+        "l1_weighting": 0.0,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.0,
+        "max_connections_weighting": 0.0,
+        "max_fan_in": 63,
+        "max_connections": 32000,
     },
     "trainer": {
         "epochs": 100,

@@ -126,21 +126,30 @@ def model_from_config(config: dict) -> pl.LightningModule:
     num_outputs = config.get("num_outputs")
     num_layers = config.get("num_layers", 2)
     num_hidden_layers = config.get("num_hidden_layers", num_layers)
+    l1_weighting = config.get("l1_weighting", 0.0)
+    l2_weighting = config.get("l2_weighting", 0.0)
+    fan_in_weighting = config.get("fan_in_weighting", 0.0)
+    max_connections_weighting = config.get("max_connections_weighting", 0.0)
+    max_fan_in = config.get("max_fan_in", 63)
+    max_connections = config.get("max_connections", 32000)
     if model_type == "FC_LATENCY" or model_type == "FC_LATENCY_XYLO" or model_type == "FC_LATENCY_FULL":
         model = LitFcLatency(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=False
+            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=False, l1_weighting=l1_weighting, l2_weighting=l2_weighting, fan_in_weighting=fan_in_weighting,
+            max_connections=max_connections,
+            max_fan_in=max_fan_in,
+            max_connections_weighting=max_connections_weighting,
         )
     elif model_type == "RNN_LATENCY":
         model = LitFcLatency(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=True
+            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=True
         )
     elif model_type == "FC_RATE":
         model = LitFcRate(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=False
+            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
         )
     elif model_type == "RNN_RATE":
         model = LitFcRate(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=True
+            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=True
         )
     elif model_type == "FC_DELTA":
         reconstruct_loss = config.get("reconstruct_loss")
@@ -152,6 +161,12 @@ def model_from_config(config: dict) -> pl.LightningModule:
             reconstruct_loss,
             True,
             num_layers,
+            l1_weighting,
+            l2_weighting,
+            fan_in_weighting,
+            max_connections_weighting,
+            max_fan_in,
+            max_connections,
             recurrent=False,
         )
     elif model_type == "RNN_DELTA":
@@ -164,6 +179,12 @@ def model_from_config(config: dict) -> pl.LightningModule:
             reconstruct_loss,
             True,
             num_layers,
+            l1_weighting,
+            l2_weighting,
+            fan_in_weighting,
+            max_connections_weighting,
+            max_fan_in,
+            max_connections,
             recurrent=True,
         )
     elif model_type == "FC_DELTA_ON":
@@ -176,6 +197,12 @@ def model_from_config(config: dict) -> pl.LightningModule:
             reconstruct_loss,
             False,
             num_layers,
+            l1_weighting,
+            l2_weighting,
+            fan_in_weighting,
+            max_connections_weighting,
+            max_fan_in,
+            max_connections,
             recurrent=False,
         )
     elif model_type == "RNN_DELTA_ON":
@@ -188,23 +215,36 @@ def model_from_config(config: dict) -> pl.LightningModule:
             reconstruct_loss,
             False,
             num_layers,
+            l1_weighting,
+            l2_weighting,
+            fan_in_weighting,
+            max_connections_weighting,
+            max_fan_in,
+            max_connections,
             recurrent=False,
         )
     elif model_type == "FC_DELTA_EXPOSURE" or model_type == "FC_DELTA_EXPOSURE_XYLO":
         model = LitFcDeltaExposure(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=False
+            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
         )
     elif model_type == "RNN_DELTA_EXPOSURE":
         model = LitFcDeltaExposure(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=True
+            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
+            max_fan_in, max_connections, recurrent=True
         )
     elif model_type == "FC_FORWARD_STEP":
         model = LitFcForwardStep(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=False
+            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
+            max_fan_in, max_connections, recurrent=False
         )
     elif model_type == "RNN_FORWARD_STEP":
         model = LitFcForwardStep(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=True
+            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
+            max_fan_in, max_connections, recurrent=True
         )
     elif model_type == "FC_ANN":
         model = LitFcANN(num_inputs, num_hidden, num_outputs, num_layers)

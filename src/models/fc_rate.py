@@ -17,10 +17,16 @@ class LitFcRate(LitModel):
         num_outputs: int,
         beta: float,
         num_layers: int,
+        l1_weighting: float,
+        l2_weighting: float,
+        fan_in_weighting: float,
+        max_connections_weighting: float,
+        max_fan_in: int,
+        max_connections: int,
         recurrent: bool = False,
     ):
         super().__init__(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent
+            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent
         )
         self.loss = mse_count_loss_balanced(correct_rate=0.8, incorrect_rate=0.2)
         self.float()
