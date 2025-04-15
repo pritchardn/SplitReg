@@ -21,15 +21,17 @@ def objective(trial):
 
     config["data_source"]["data_path"] = os.getenv("DATA_PATH", "./data")
     config["data_source"]["limit"] = float(os.getenv("LIMIT", 0.1))
-    config["data_source"]["patch_size"] = int(os.getenv("PATCH_SIZE", 32))
-    config["data_source"]["stride"] = int(os.getenv("STRIDE", 32))
+    config["data_source"]["patch_size"] = int(os.getenv("PATCH_SIZE", 512))
+    config["data_source"]["stride"] = int(os.getenv("STRIDE", 512))
     config["data_source"]["delta_normalization"] = (
         os.getenv("DELTA_NORMALIZATION", False) == "True"
     )
+    config["model"]["num_inputs"] = config["data_source"]["patch_size"]
+    config["model"]["num_outputs"] = config["data_source"]["patch_size"]
 
-    config["dataset"]["batch_size"] = int(os.getenv("BATCH_SIZE", 36))
+    config["dataset"]["batch_size"] = int(os.getenv("BATCH_SIZE", 4))
     config["model"]["num_hidden"] = trial.suggest_categorical(
-        "num_hidden", [128, 256, 512]
+        "num_hidden", [128, 256, 512, 1024, 2048, 4096]
     )
     config["model"]["num_layers"] = trial.suggest_int("num_layers", 2, 6)
     config["trainer"]["epochs"] = int(os.getenv("EPOCHS", 100))
@@ -37,13 +39,14 @@ def objective(trial):
     config["encoder"]["exposure_mode"] = os.getenv("FORWARD_EXPOSURE", "latency")
 
     # Regularization parameters
-    config["model"]["l1_weighting"] = trial.suggest_float(0.0, 1.0)
-    config["model"]["l2_weighting"] = trial.suggest_float(0.0, 1.0)
-    config["model"]["fan_in_weighting"] = trial.suggest_float(0.0, 1.0)
-    config["model"]["max_connections_weighting"] = trial.suggest_float(0.0, 1.0)
+    config["model"]["l1_weighting"] = trial.suggest_float("l1_weighting", 0.0, 0.1)
+    config["model"]["l2_weighting"] = trial.suggest_categorical("l2_weighting", [0.0, 1e-6, 1e-5])
+    config["model"]["fan_in_weighting"] = trial.suggest_float("fan_in_weighting", 0.0, 0.1)
+    config["model"]["max_connections_weighting"] = trial.suggest_float("max_connections_weighting", 0.0, 0.1)
 
     if model_type != "FC_ANN":
         config["model"]["beta"] = trial.suggest_float("beta", 0.0, 1.0)
+        config["model"]["alpha"] = trial.suggest_float("alpha", 0.0, 1.0)
         config["encoder"]["exposure"] = trial.suggest_int("exposure", 1, 64)
     else:
         config["model"]["beta"] = 0.0
@@ -56,12 +59,12 @@ def objective(trial):
     experiment.prepare()
     experiment.train()
     accuracy, mse, auroc, auprc, f1 = experiment.evaluate()
-    return accuracy, mse, auroc, auprc, f1
+    return f1
 
 
 def main():
     optuna_db = os.getenv("OPTUNA_DB", None)
-    direction = ["maximize", "minimize", "maximize", "maximize", "maximize"]
+    direction = ["maximize"]
     if optuna_db:
         random_sec = random.randint(1, 60)
         print(f"Sleeping for {random_sec} seconds")
