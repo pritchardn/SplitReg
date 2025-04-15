@@ -24,6 +24,7 @@ class BaseLitModel(pl.LightningModule):
         num_hidden: int,
         num_outputs: int,
         beta: float,
+        alpha: float,
         num_layers: int,
         recurrent: bool,
         l1_weighting: float,
@@ -39,15 +40,16 @@ class BaseLitModel(pl.LightningModule):
         self.num_hidden = num_hidden
         self.num_outputs = num_outputs
         self.beta = beta
+        self.alpha = alpha
         self.num_layers = num_layers
         self.recurrent = recurrent
         self.regularization = None
-        self.max_fan_in = 63
-        self.max_connections = 32000
-        self.l2_weighting = 1e-5
-        self.l1_weighting = 0.001
-        self.fan_in_weighting = 0.2
-        self.max_connection_weighting = 0.2
+        self.max_fan_in = max_fan_in
+        self.max_connections = max_connections
+        self.l2_weighting = l2_weighting
+        self.l1_weighting = l1_weighting
+        self.fan_in_weighting = fan_in_weighting
+        self.max_connection_weighting = max_connections_weighting
 
         self.layers = self._init_layers()
 
@@ -72,7 +74,7 @@ class BaseLitModel(pl.LightningModule):
                     )
                 )
             else:
-                layers.append(snn.Synaptic(alpha=self.beta, beta=self.beta, learn_threshold=True, learn_beta=True, learn_alpha=True))
+                layers.append(snn.Synaptic(alpha=self.alpha, beta=self.beta, threshold=0.1, learn_threshold=True, learn_beta=True, learn_alpha=True))
         return torch.nn.Sequential(*layers)
 
     def set_converter(self, converter: SpikeConverter):
@@ -96,25 +98,15 @@ class BaseLitModel(pl.LightningModule):
         epsilon = torch.finfo(torch.float32).eps
         penalty = torch.scalar_tensor(0.0, requires_grad=True)
         for layer in self.layers[0:self.num_layers * 2:2]:
-            penalty = penalty.add(torch.clip(torch.mean((torch.abs(layer.weight) > epsilon).float().sum(dim=1).subtract(self.max_fan_in), dim=0).divide(self.max_fan_in).subtract(1.0), 0.0, 1.0))
+            penalty = penalty.add(torch.mean((torch.abs(layer.weight) > epsilon).float().sum(dim=1).subtract(self.max_fan_in).clamp_min(0.0), dim=0).divide(self.max_fan_in))
         return penalty.divide(self.num_layers)
 
-    def total_connection_penalty(self):
-        epsilon = torch.finfo(torch.float32).eps
-        penalty = torch.scalar_tensor(0.0, requires_grad=True)
-        for layer in self.layers[0:self.num_layers * 2:2]:
-            penalty = penalty.add((torch.abs(layer.weight) > epsilon).float().sum(dim=1).sum(dim=0))
-        penalty.subtract(self.max_connections)
-        return torch.clip(penalty.divide(self.max_connections).subtract(1.0), 0.0, 1.0)
 
     def calc_loss(self, y_hat, y):
-        loss = self.loss(y_hat, y)
+        loss = self.loss(torch.unsqueeze(y_hat, 2), y)
         fan_in_penalty = self.fan_in_penalty()
-        total_connection_penalty = self.total_connection_penalty()
         self.log("fan_in_penalty", fan_in_penalty, sync_dist=True)
-        self.log("total_connection_penalty", total_connection_penalty, sync_dist=True)
         loss += self.fan_in_weighting * fan_in_penalty # TODO: lambda parameter
-        loss += self.max_connection_weighting * total_connection_penalty
         l1_norm = sum(p.abs().sum() for p in self.parameters())
         loss += self.l1_weighting * l1_norm
         if self.regularization:
@@ -173,6 +165,7 @@ class LitModel(BaseLitModel):
         num_hidden: int,
         num_outputs: int,
         beta: float,
+        alpha: float,
         num_layers: int,
         l1_weighting: float,
         l2_weighting: float,
@@ -183,7 +176,7 @@ class LitModel(BaseLitModel):
         recurrent: bool = False,
     ):
         super().__init__(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, recurrent, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections
         )
 
     def _infer_slice(self, x, membranes):
@@ -209,9 +202,6 @@ class LitModel(BaseLitModel):
         spike_recordings = []
         # x -> [N x exp x C x freq x time]
         membranes = self._init_membranes()
-        num_polarizations = x.shape[2]
-        if num_polarizations != 1:
-            x = torch.flatten(x, 2, 3).unsqueeze(2)
         for t in range(x.shape[-1]):
             data = x[:, :, 0, :, t]
             if self.recurrent:
@@ -219,13 +209,9 @@ class LitModel(BaseLitModel):
             else:
                 spike, _, spike_rec = self._infer_slice(data, membranes)
                 spike_recordings.append(spike_rec)
-            if num_polarizations != 1 and self.num_outputs == self.num_inputs:  # Only catch polarized output
-                spike = spike.view(*(spike.shape[:-1]), num_polarizations, -1)
             full_spike.append(spike)
         full_spike = torch.stack(full_spike, dim=0)  # [time x N x exp x C x freq]
         full_spike = torch.moveaxis(full_spike, 0, -1)
-        if num_polarizations == 1 or self.num_outputs != self.num_inputs:
-            full_spike = full_spike.unsqueeze(2)
         return torch.moveaxis(full_spike, 0, 1), spike_recordings
 
 

@@ -17,6 +17,7 @@ class LitFcLatency(LitModel):
         num_hidden: int,
         num_outputs: int,
         beta: float,
+        alpha: float,
         num_layers: int,
         l1_weighting: float,
         l2_weighting: float,
@@ -27,7 +28,7 @@ class LitFcLatency(LitModel):
         recurrent: bool = False,
     ):
         super().__init__(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent
         )
         self.loss = SF.mse_temporal_loss(target_is_time=True)
         self.float()
@@ -39,7 +40,7 @@ class LitFcLatency(LitModel):
         loss = self.calc_loss(spike_hat, y)
         if batch_idx == 0 and self.trainer.local_rank == 0:
             plot_example_inference(
-                spike_hat[:, 0, 0, ::].detach().cpu(),
+                spike_hat[:, 0, ::].detach().cpu(),
                 str(self.current_epoch),
                 self.trainer.log_dir,
             )
