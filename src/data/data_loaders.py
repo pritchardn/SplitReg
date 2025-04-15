@@ -106,6 +106,12 @@ class HeraDataLoader(RawDataLoader):
         self.rfi_models = rfi_models
         self.original_size = self.train_x.shape[1]
         self._prepare_data()
+        self.test_y = extract_polarization(self.test_y, 0)
+        self.train_y = extract_polarization(self.train_y, 0)
+        self.test_x = extract_polarization(self.test_x, 0)
+        self.train_x = extract_polarization(self.train_x, 0)
+        self.val_x = extract_polarization(self.val_x, 0)
+        self.val_y = extract_polarization(self.val_y, 0)
         if self.patch_size:
             self.create_patches(self.patch_size, self.stride)
         self.filter_noiseless_val_patches()

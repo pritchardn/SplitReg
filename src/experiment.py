@@ -68,24 +68,6 @@ def data_source_from_config(config: dict) -> RawDataLoader:
             data_source = HeraDataLoader(
                 data_path, patch_size=patch_size, stride=stride, limit=limit
             )
-    elif dataset == "HERA_POLAR_DOP":
-        if delta_normalization:
-            data_source = HeraPolarizationDeltaNormDoPDataLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
-        else:
-            data_source = HeraPolarizationDoPDataLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
-    elif dataset == "HERA_POLAR_FULL":
-        if delta_normalization:
-            data_source = HeraPolarizationDeltaNormFullDataLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
-        else:
-            data_source = HeraPolarizationFullDataLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
     elif dataset == "LOFAR":
         if delta_normalization:
             data_source = LofarDeltaNormLoader(
@@ -121,6 +103,7 @@ def dataset_from_config(
 def model_from_config(config: dict) -> pl.LightningModule:
     model_type = config.get("type")
     beta = config.get("beta")
+    alpha = config.get("alpha", beta)
     num_inputs = config.get("num_inputs")
     num_hidden = config.get("num_hidden")
     num_outputs = config.get("num_outputs")
@@ -134,18 +117,18 @@ def model_from_config(config: dict) -> pl.LightningModule:
     max_connections = config.get("max_connections", 32000)
     if model_type == "FC_LATENCY" or model_type == "FC_LATENCY_XYLO" or model_type == "FC_LATENCY_FULL":
         model = LitFcLatency(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, recurrent=False, l1_weighting=l1_weighting, l2_weighting=l2_weighting, fan_in_weighting=fan_in_weighting,
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, recurrent=False, l1_weighting=l1_weighting, l2_weighting=l2_weighting, fan_in_weighting=fan_in_weighting,
             max_connections=max_connections,
             max_fan_in=max_fan_in,
             max_connections_weighting=max_connections_weighting,
         )
     elif model_type == "RNN_LATENCY":
         model = LitFcLatency(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=True
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=True
         )
     elif model_type == "FC_RATE":
         model = LitFcRate(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
         )
     elif model_type == "RNN_RATE":
         model = LitFcRate(
@@ -158,6 +141,7 @@ def model_from_config(config: dict) -> pl.LightningModule:
             num_hidden,
             num_outputs,
             beta,
+            alpha,
             reconstruct_loss,
             True,
             num_layers,
@@ -176,6 +160,7 @@ def model_from_config(config: dict) -> pl.LightningModule:
             num_hidden,
             num_outputs,
             beta,
+            alpha,
             reconstruct_loss,
             True,
             num_layers,
@@ -194,6 +179,7 @@ def model_from_config(config: dict) -> pl.LightningModule:
             num_hidden,
             num_outputs,
             beta,
+            alpha,
             reconstruct_loss,
             False,
             num_layers,
@@ -212,6 +198,7 @@ def model_from_config(config: dict) -> pl.LightningModule:
             num_hidden,
             num_outputs,
             beta,
+            alpha,
             reconstruct_loss,
             False,
             num_layers,
@@ -225,24 +212,24 @@ def model_from_config(config: dict) -> pl.LightningModule:
         )
     elif model_type == "FC_DELTA_EXPOSURE" or model_type == "FC_DELTA_EXPOSURE_XYLO":
         model = LitFcDeltaExposure(
-            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
             l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
         )
     elif model_type == "RNN_DELTA_EXPOSURE":
         model = LitFcDeltaExposure(
-            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
             l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
             max_fan_in, max_connections, recurrent=True
         )
     elif model_type == "FC_FORWARD_STEP":
         model = LitFcForwardStep(
-            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
             l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
             max_fan_in, max_connections, recurrent=False
         )
     elif model_type == "RNN_FORWARD_STEP":
         model = LitFcForwardStep(
-            num_inputs, num_hidden, num_outputs, beta, num_layers,
+            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
             l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
             max_fan_in, max_connections, recurrent=True
         )
