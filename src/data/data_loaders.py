@@ -8,8 +8,8 @@ from typing import Union
 import numpy as np
 from tqdm import tqdm
 
-from src.data.utils import test_train_split, extract_polarization
-from src.interfaces.data.raw_data_loader import RawDataLoader, calc_limit_int
+from data.utils import test_train_split, extract_polarization
+from interfaces.data.raw_data_loader import RawDataLoader, calc_limit_int
 
 
 def _delta_normalize(image_data: np.ndarray, kernel_size=3) -> np.ndarray:

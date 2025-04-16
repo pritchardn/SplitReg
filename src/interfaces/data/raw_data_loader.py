@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 
-from src.data.utils import extract_patches, filter_noiseless_patches
+from data.utils import extract_patches, filter_noiseless_patches
 
 
 def calc_limit_int(limit: float, data_len: int) -> int:

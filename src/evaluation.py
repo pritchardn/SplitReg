@@ -18,10 +18,10 @@ from sklearn.metrics import (
 )
 from tqdm import tqdm
 
-from src.data.data_module import ConfiguredDataModule
-from src.data.utils import reconstruct_patches, ensure_tflow
-from src.interfaces.data.spiking_data_module import SpikeConverter
-from src.plotting import plot_final_examples
+from data.data_module import ConfiguredDataModule
+from data.utils import reconstruct_patches, ensure_tflow
+from interfaces.data.spiking_data_module import SpikeConverter
+from plotting import plot_final_examples
 
 
 def plot_example_raster(
@@ -163,8 +163,8 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray):
     false_pos_rate, true_pos_rate, _ = roc_curve(
         y_true.flatten() > 0, y_pred.flatten() > 0, pos_label=pos_label
     )
-    accuracy = accuracy_score(y_true.flatten() > 0, y_pred.flatten() > 0)
-    mse = mean_squared_error(y_true.flatten() > 0, y_pred.flatten() > 0)
+    accuracy = accuracy_score((y_true.flatten() > 0).astype("float"), (y_pred.flatten()).astype("float") > 0)
+    mse = mean_squared_error((y_true.flatten() > 0).astype("float"), (y_pred.flatten() > 0).astype("float"))
     auroc = auc(false_pos_rate, true_pos_rate)
     precision, recall, _ = precision_recall_curve(
         y_true.flatten() > 0, y_pred.flatten() > 0, pos_label=pos_label

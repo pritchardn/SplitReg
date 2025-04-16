@@ -9,7 +9,7 @@ import torch
 import numpy as np
 import lightning.pytorch as pl
 from tqdm import tqdm
-from src.evaluation import calculate_metrics
+from evaluation import calculate_metrics
 
 
 
