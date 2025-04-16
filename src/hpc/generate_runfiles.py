@@ -11,7 +11,8 @@ models = {
         ("FC_DELTA", "DELTA"),
         ("FC_FORWARD_STEP", "FORWARDSTEP"),
         ("FC_DELTA_EXPOSURE", "DELTA_EXPOSURE"),
-        ("FC_ANN", "ANN")
+        ("FC_ANN", "ANN"),
+        ("FC_LATENCY", "DIRECT"),
     ],
     "RNN": [
         ("RNN_LATENCY", "LATENCY"),
@@ -62,11 +63,11 @@ export DELTA_NORMALIZATION="{delta_norm}"
 
 module load python/3.10.10
 
-cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SUPER/src
+cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SPLITREG/src
 source /software/projects/pawsey0411/npritchard/setonix/2023.08/python/snn-nln/bin/activate
 
 export DATA_PATH="/scratch/pawsey0411/npritchard/data"
-export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-super/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{NUM_HIDDEN}}/${{LIMIT}}"""
+export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-splitreg/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{NUM_HIDDEN}}/${{LIMIT}}"""
             + forward_step_directory
             + """
 export FI_CXI_DEFAULT_VNI=$(od -vAn -N4 -tu < /dev/urandom)
@@ -95,7 +96,7 @@ def prepare_optuna(
         '''/${FORWARD_EXPOSURE}"''' if forward_step_exposure != "None" else '"'
     )
     study_name = (
-            f"""export STUDY_NAME="SNN-SUPER-C-${{DATASET}}-${{ENCODER_METHOD}}-${{MODEL_TYPE}}-{limit}-${{NUM_HIDDEN}}"""
+            f"""export STUDY_NAME="SNN-SPLITREG-B-${{DATASET}}-${{ENCODER_METHOD}}-${{MODEL_TYPE}}-{limit}"""
             + ("""-${FORWARD_EXPOSURE}""" if forward_step_exposure != "None" else """""")
             + '-${DELTA_NORMALIZATION}"'
     )
@@ -118,18 +119,20 @@ export ENCODER_METHOD="{encoding}"
 export FORWARD_EXPOSURE="{forward_step_exposure}"
 export NNODES=1
 export DELTA_NORMALIZATION="{delta_norm}"
+export PLOT="false"
+export EPOCHS=25
 
 
 module load python/3.10.10
 
-cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SUPER/src
+cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SPLITREG/src
 source /software/projects/pawsey0411/npritchard/setonix/2023.08/python/snn-nln/bin/activate
 
 export DATA_PATH="/scratch/pawsey0411/npritchard/data"
 export OPTUNA_DB=${{OPTUNA_URL}} # Need to change on super-computer before submitting\n"""
             + study_name
             + """
-export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-super/optuna/${MODEL_TYPE}/${ENCODER_METHOD}/${DATASET}/${DELTA_NORMALIZATION}/${NUM_HIDDEN}/${LIMIT}"""
+export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-splitreg/optuna/${MODEL_TYPE}/${ENCODER_METHOD}/${DATASET}/${DELTA_NORMALIZATION}/${NUM_HIDDEN}/${LIMIT}"""
             + forward_step_directory
             + """
 export FI_CXI_DEFAULT_VNI=$(od -vAn -N4 -tu < /dev/urandom)

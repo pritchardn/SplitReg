@@ -32,6 +32,7 @@ from data.spike_converters import (
     DeltaSpikeConverter,
     ForwardStepConverter,
     NonConverter,
+    DirectSpikeConverter,
 )
 from data.spike_converters.delta_exposure_converter import DeltaExposureSpikeConverter
 from data.utils import reconstruct_patches
@@ -344,6 +345,11 @@ def encoder_from_config(config: dict) -> SpikeConverter:
             normalize=normalize,
             exposure_mode=exposure_mode,
         )
+    elif config.get("method") == "DIRECT":
+        exposure = config.get("exposure")
+        tau = config.get("tau")
+        normalize = config.get("normalize")
+        encoder = DirectSpikeConverter(exposure, tau=tau, normalize=normalize)
     elif config.get("method") == "ANN":
         encoder = NonConverter()
     elif config.get("method") == "ANN_PATCHED":
