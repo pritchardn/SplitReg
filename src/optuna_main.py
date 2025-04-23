@@ -33,7 +33,7 @@ def objective(trial):
     config["model"]["num_hidden"] = trial.suggest_categorical(
         "num_hidden", [128, 256, 512, 1024, 2048, 4096]
     )
-    config["model"]["num_layers"] = trial.suggest_int("num_layers", 2, 6)
+    config["model"]["num_layers"] = trial.suggest_int("num_layers", 3, 6)
     config["trainer"]["epochs"] = int(os.getenv("EPOCHS", 100))
     config["encoder"]["method"] = os.getenv("ENCODER_METHOD", "LATENCY")
     config["encoder"]["exposure_mode"] = os.getenv("FORWARD_EXPOSURE", "latency")
