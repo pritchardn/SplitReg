@@ -14,24 +14,25 @@ DEFAULT_HERA_LATENCY = {
         "dataset": "HERA",
     },
     "dataset": {
-        "batch_size": 4,
+        "batch_size": 32,
     },
     "model": {
         "type": "FC_LATENCY",
         "num_inputs": 32,
-        "num_hidden": 256,
+        "num_hidden": 128,
         "num_outputs": 32,
-        "num_layers": 3,
-        "beta": 0.245507490258551,
-        "l1_weighting": 0.0,
-        "l2_weighting": 0.0,
-        "fan_in_weighting": 0.0,
-        "max_connections_weighting": 0.0,
+        "num_layers": 6,
+        "beta": 0.25,
+        "alpha": 0.00,
+        "l1_weighting": 0.006538050010647424,
+        "l2_weighting": 1e-5,
+        "fan_in_weighting": 0.05116048201877285,
+        "max_connections_weighting": 0.002575738608513488,
         "max_fan_in": 63,
         "max_connections": 32000,
     },
     "trainer": {
-        "epochs": 100,
+        "epochs": 5,
         "num_nodes": int(os.getenv("NNODES", 1)),
     },
     "encoder": {
@@ -60,7 +61,7 @@ DEFAULT_HERA_LATENCY_MH = {
         "dataset": "HERA",
     },
     "dataset": {
-        "batch_size": 4,
+        "batch_size": 32,
     },
     "model": {
         "type": "MH_LATENCY",
@@ -68,8 +69,8 @@ DEFAULT_HERA_LATENCY_MH = {
         "num_hidden": 2048,
         "num_outputs": 512,
         "num_hidden_layers": 2,
-        "alpha": 0.10,
-        "beta": 0.245507490258551,
+        "alpha": 0.99,
+        "beta": 0.99,
         "head_width": 16,
         "head_stride": 16,
         "learning_rate": 1e-3,
@@ -88,10 +89,49 @@ DEFAULT_HERA_LATENCY_MH = {
 
 DEFAULT_HERA_LATENCY_DIVNORM = copy.deepcopy(DEFAULT_HERA_LATENCY)
 # DEFAULT_HERA_LATENCY_DIVNORM["model"]["num_hidden"] = 256
-DEFAULT_HERA_LATENCY_DIVNORM["model"]["beta"] = 0.239039586173328
-DEFAULT_HERA_LATENCY_DIVNORM["model"]["num_layers"] = 5
+# DEFAULT_HERA_LATENCY_DIVNORM["model"]["beta"] = 0.239039586173328
+# DEFAULT_HERA_LATENCY_DIVNORM["model"]["num_layers"] = 5
 DEFAULT_HERA_LATENCY_DIVNORM["data_source"]["delta_normalization"] = True
 # DEFAULT_HERA_LATENCY_DIVNORM["encoder"]["exposure"] = 4
+
+
+DEFAULT_HERA_DIRECT_DIVNORM = {
+    "data_source": {
+        "data_path": "./data",
+        "limit": 1.0,
+        "patch_size": 512,
+        "stride": 512,
+        "dataset": "HERA",
+    },
+    "dataset": {
+        "batch_size": 4,
+    },
+    "model": {
+        "type": "FC_LATENCY",
+        "num_inputs": 512,
+        "num_hidden": 4096,
+        "num_outputs": 512,
+        "num_layers": 6,
+        "beta": 0.5766937882757079,
+        "alpha": 0.9912111373715509,
+        "l1_weighting": 0.03967831812271985,
+        "l2_weighting": 0.0,
+        "fan_in_weighting": 0.06422464918600554,
+        "max_connections_weighting": 0.0477629088705954,
+        "max_fan_in": 63,
+        "max_connections": 32000,
+    },
+    "trainer": {
+        "epochs": 100,
+        "num_nodes": int(os.getenv("NNODES", 1)),
+    },
+    "encoder": {
+        "method": "DIRECT",
+        "exposure": 19,
+        "tau": 1.0,
+        "normalize": True,
+    },
+}
 
 DEFAULT_LOFAR_LATENCY_DIVNORM = copy.deepcopy(DEFAULT_LOFAR_LATENCY)
 DEFAULT_LOFAR_LATENCY_DIVNORM["model"]["num_hidden"] = 256
@@ -418,6 +458,8 @@ def get_default_params(
                 params = DEFAULT_HERA_LATENCY_DIVNORM
             else:
                 params = DEFAULT_HERA_LATENCY
+        elif model_type == "FC_DIRECT_LATENCY":
+            params = DEFAULT_HERA_DIRECT_DIVNORM
         elif model_type == "FC_LATENCY_XYLO":
             if delta_normalization:
                 params = DEFAULT_HERA_LATENCY_DIVNORM
