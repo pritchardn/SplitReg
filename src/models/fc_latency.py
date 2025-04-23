@@ -40,7 +40,7 @@ class LitFcLatency(LitModel):
         loss = self.calc_loss(spike_hat, y)
         if batch_idx == 0 and self.trainer.local_rank == 0:
             plot_example_inference(
-                spike_hat[:, 0, ::].detach().cpu(),
+                spike_hat[:, 0, 0, ::].detach().cpu(),
                 str(self.current_epoch),
                 self.trainer.log_dir,
             )

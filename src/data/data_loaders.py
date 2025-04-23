@@ -138,7 +138,6 @@ class HeraDeltaNormLoader(RawDataLoader):
             self.create_patches(self.patch_size, self.stride)
         self.filter_noiseless_val_patches()
         self.filter_noiseless_train_patches()
-        pass
 
 
 def calculate_dop(xx, yy):

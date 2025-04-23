@@ -21,26 +21,24 @@ def objective(trial):
 
     config["data_source"]["data_path"] = os.getenv("DATA_PATH", "./data")
     config["data_source"]["limit"] = float(os.getenv("LIMIT", 0.1))
-    config["data_source"]["patch_size"] = int(os.getenv("PATCH_SIZE", 512))
-    config["data_source"]["stride"] = int(os.getenv("STRIDE", 512))
+    config["data_source"]["patch_size"] = int(os.getenv("PATCH_SIZE", 32))
+    config["data_source"]["stride"] = int(os.getenv("STRIDE", 32))
     config["data_source"]["delta_normalization"] = (
         os.getenv("DELTA_NORMALIZATION", False) == "True"
     )
     config["model"]["num_inputs"] = config["data_source"]["patch_size"]
     config["model"]["num_outputs"] = config["data_source"]["patch_size"]
 
-    config["dataset"]["batch_size"] = int(os.getenv("BATCH_SIZE", 4))
+    config["dataset"]["batch_size"] = int(os.getenv("BATCH_SIZE", 16))
     config["model"]["num_hidden"] = trial.suggest_categorical(
         "num_hidden", [128, 256, 512, 1024, 2048, 4096]
     )
     config["model"]["num_layers"] = trial.suggest_int("num_layers", 3, 6)
-    config["trainer"]["epochs"] = int(os.getenv("EPOCHS", 100))
+    config["trainer"]["epochs"] = int(os.getenv("EPOCHS", 25))
     config["encoder"]["method"] = os.getenv("ENCODER_METHOD", "LATENCY")
     config["encoder"]["exposure_mode"] = os.getenv("FORWARD_EXPOSURE", "latency")
 
     # Regularization parameters
-    config["model"]["l1_weighting"] = trial.suggest_float("l1_weighting", 0.0, 0.1)
-    config["model"]["l2_weighting"] = trial.suggest_categorical("l2_weighting", [0.0, 1e-6, 1e-5])
     config["model"]["fan_in_weighting"] = trial.suggest_float("fan_in_weighting", 0.0, 0.1)
     config["model"]["max_connections_weighting"] = trial.suggest_float("max_connections_weighting", 0.0, 0.1)
 

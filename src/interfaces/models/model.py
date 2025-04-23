@@ -76,8 +76,8 @@ class BaseLitModel(pl.LightningModule):
                     )
                 )
             else:
-                layers.append(snn.Leaky(alpha=self.alpha, beta=self.beta, threshold=0.1, learn_threshold=True, learn_beta=True, learn_alpha=True))
-        return torch.nn.Sequential(*layers)
+                layers.append(snn.Synaptic(alpha=self.alpha, beta=self.beta, threshold=0.1, learn_threshold=True, learn_beta=True, learn_alpha=True))
+        return torch.nn.ModuleList(layers)
 
     def set_converter(self, converter: SpikeConverter):
         self.converter = converter
@@ -105,12 +105,10 @@ class BaseLitModel(pl.LightningModule):
 
 
     def calc_loss(self, y_hat, y):
-        loss = self.loss(torch.unsqueeze(y_hat, 2), y)
+        loss = self.loss(y_hat, y)
         fan_in_penalty = self.fan_in_penalty()
         self.log("fan_in_penalty", fan_in_penalty, sync_dist=True)
-        loss += self.fan_in_weighting * fan_in_penalty # TODO: lambda parameter
-        l1_norm = sum(p.abs().sum() for p in self.parameters())
-        loss += self.l1_weighting * l1_norm
+        loss += self.fan_in_weighting * fan_in_penalty
         if self.regularization:
             for reg_method in self.regularization:
                 loss += reg_method(y_hat)
@@ -151,7 +149,7 @@ class BaseLitModel(pl.LightningModule):
         return accuracy, mse, auroc, auprc, f1
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=self.l2_weighting)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=10)
         return {
             "optimizer": optimizer,
@@ -185,8 +183,10 @@ class LitModel(BaseLitModel):
         spike = None
         spike_counts = []
         for n in range(self.num_layers):
-            curr = self.layers[n * 2](x)
-            spike, syn_mem, mem_mem = self.layers[n * 2 + 1](curr, membranes[n][0], membranes[n][1])
+            ann_layer = self.layers[n * 2]
+            snn_layer = self.layers[n * 2 + 1]
+            curr = ann_layer(x)
+            spike, syn_mem, mem_mem = snn_layer(curr, membranes[0 if n == 0 else n-1][0], membranes[0 if n == 0 else n-1][1])
             membranes[n] = (syn_mem, mem_mem)
             x = spike
             spike_counts.append(torch.count_nonzero(spike).item())
@@ -194,28 +194,30 @@ class LitModel(BaseLitModel):
 
     def _infer_slice_recurrent(self, x, states):
         for n in range(self.num_layers):
-            curr = self.layers[n * 2](x)
-            states[n] = self.layers[n * 2 + 1](curr, states[n][0], states[n][1])
+            curr = self.ann_layers[n](x)
+            states[n] = self.snn_layers[n](curr, states[n][0], states[n][1])
             x = states[n][0]
         return x, states[-1][1]
 
     def forward(self, x):
         full_spike = []
+        full_mem = []
         spike_recordings = []
         # x -> [N x exp x C x freq x time]
         membranes = self._init_membranes()
         for t in range(x.shape[-1]):
             data = x[:, :, 0, :, t]
             if self.recurrent:
-                spike, _ = self._infer_slice_recurrent(data, membranes)
+                spike, mem = self._infer_slice_recurrent(data, membranes)
             else:
-                spike, _, spike_rec = self._infer_slice(data, membranes)
+                spike, mem, spike_rec = self._infer_slice(data, membranes)
                 spike_recordings.append(spike_rec)
             full_spike.append(spike)
+            full_mem.append(mem)
         full_spike = torch.stack(full_spike, dim=0)  # [time x N x exp x C x freq]
         full_spike = torch.moveaxis(full_spike, 0, -1)
+        full_spike = full_spike.unsqueeze(2)
         return torch.moveaxis(full_spike, 0, 1), spike_recordings
-
 
 class LitPatchedModel(BaseLitModel):
     def __init__(
