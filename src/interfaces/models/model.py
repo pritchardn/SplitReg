@@ -58,12 +58,16 @@ class BaseLitModel(pl.LightningModule):
         for i in range(self.num_layers):
             if i == 0:
                 layers.append(nn.Linear(self.num_inputs, self.num_inputs * 2, bias=False))
+                num_neurons = self.num_inputs * 2
             elif i == 1:
                 layers.append(nn.Linear(2 * self.num_inputs, self.num_hidden, bias=False))  # Walk up
+                num_neurons = self.num_hidden
             elif i == self.num_layers - 1:
                 layers.append(nn.Linear(self.num_hidden, self.num_outputs, bias=False))
+                num_neurons = self.num_outputs
             else:
                 layers.append(nn.Linear(self.num_hidden, self.num_hidden, bias=False))
+                num_neurons = self.num_hidden
             if self.recurrent:
                 num_features = self.num_hidden
                 if i == self.num_layers - 1:
@@ -76,8 +80,8 @@ class BaseLitModel(pl.LightningModule):
                     )
                 )
             else:
-                layers.append(snn.Synaptic(alpha=self.alpha, beta=self.beta, threshold=0.1, learn_threshold=True, learn_beta=True, learn_alpha=True))
-        return torch.nn.ModuleList(layers)
+                layers.append(snn.Synaptic(alpha=torch.full((num_neurons,), self.alpha), beta=torch.full((num_neurons,), self.beta), threshold=0.1, learn_threshold=True, learn_beta=True, learn_alpha=True))
+        return torch.nn.Sequential(*layers)
 
     def set_converter(self, converter: SpikeConverter):
         self.converter = converter
