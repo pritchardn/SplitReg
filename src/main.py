@@ -16,8 +16,9 @@ def main():
     exposure_mode = os.getenv("EXPOSURE_MODE", None)
     plot = os.getenv("PLOT", False) == "True"
     delta_normalization = os.getenv("DELTA_NORMALIZATION", False) == "True"
+    patch_size = int(os.getenv("PATCH_SIZE", 32))
     config = get_default_params(
-        dataset, model_type, num_hidden, exposure_mode, delta_normalization
+        dataset, model_type, num_hidden, exposure_mode, delta_normalization, patch_size
     )
     config["data_source"]["data_path"] = os.getenv(
         "DATA_PATH", config["data_source"]["data_path"]

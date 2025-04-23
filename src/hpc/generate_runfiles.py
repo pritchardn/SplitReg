@@ -36,6 +36,7 @@ def prepare_singlerun(
         forward_step_exposure="None",
         delta_norm=False,
         num_nodes=1,
+        patch_size=32,
 ):
     forward_step_directory = (
         '''/${FORWARD_EXPOSURE}"''' if forward_step_exposure != "None" else '"'
@@ -60,6 +61,7 @@ export ENCODER_METHOD="{encoding}"
 export FORWARD_EXPOSURE="{forward_step_exposure}"
 export NNODES="{num_nodes}"
 export DELTA_NORMALIZATION="{delta_norm}"
+export PATCH_SIZE={patch_size}
 
 module load python/3.10.10
 
@@ -67,7 +69,7 @@ cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SPLITREG/
 source /software/projects/pawsey0411/npritchard/setonix/2023.08/python/snn-nln/bin/activate
 
 export DATA_PATH="/scratch/pawsey0411/npritchard/data"
-export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-splitreg/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{NUM_HIDDEN}}/${{LIMIT}}"""
+export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-splitreg/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{PATCH_SIZE}}/${{LIMIT}}"""
             + forward_step_directory
             + """
 export FI_CXI_DEFAULT_VNI=$(od -vAn -N4 -tu < /dev/urandom)
@@ -153,12 +155,12 @@ def write_bashfile(out_dir, name, runfiletext):
         f.write(runfiletext)
 
 
-def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm):
+def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm, patch_size):
     if encoding == "FORWARDSTEP":
         for forward_step_exposure in forwardstep_exposures:
             write_bashfile(
                 out_dir,
-                f"{dataset}-{encoding}-{forward_step_exposure}",
+                f"{dataset}-{encoding}-{forward_step_exposure}-{patch_size}",
                 prepare_singlerun(
                     model,
                     encoding,
@@ -166,18 +168,20 @@ def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm):
                     forward_step_exposure,
                     delta_norm=delta_norm,
                     num_nodes=num_nodes,
+                    patch_size=patch_size,
                 ),
             )
     else:
         write_bashfile(
             out_dir,
-            f"{dataset}-{encoding}",
+            f"{dataset}-{encoding}-{patch_size}",
             prepare_singlerun(
                 model,
                 encoding,
                 dataset,
                 delta_norm=delta_norm,
                 num_nodes=num_nodes,
+                patch_size=patch_size,
             ),
         )
     limit = 10
@@ -185,7 +189,7 @@ def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm):
         for forward_step_exposure in forwardstep_exposures:
             write_bashfile(
                 out_dir,
-                f"optuna-{dataset}-{encoding}-{limit}-{forward_step_exposure}",
+                f"optuna-{dataset}-{encoding}-{limit}-{forward_step_exposure}-{patch_size}",
                 prepare_optuna(
                     model,
                     encoding,
@@ -199,7 +203,7 @@ def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm):
     else:
         write_bashfile(
             out_dir,
-            f"optuna-{dataset}-{encoding}-{limit}",
+            f"optuna-{dataset}-{encoding}-{limit}-{patch_size}",
             prepare_optuna(
                 model,
                 encoding,
@@ -216,7 +220,7 @@ def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm):
         for forward_step_exposure in forwardstep_exposures:
             write_bashfile(
                 out_dir,
-                f"optuna-{dataset}-{encoding}-{limit}-{forward_step_exposure}",
+                f"optuna-{dataset}-{encoding}-{limit}-{forward_step_exposure}-{patch_size}",
                 prepare_optuna(
                     model,
                     encoding,
@@ -230,7 +234,7 @@ def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm):
     else:
         write_bashfile(
             out_dir,
-            f"optuna-{dataset}-{encoding}-{limit}",
+            f"optuna-{dataset}-{encoding}-{limit}-{patch_size}",
             prepare_optuna(
                 model,
                 encoding,
@@ -255,14 +259,16 @@ def main(out_dir, num_nodes):
                         "DELTA_NORM" if delta_norm else "ORIGINAL",
                     )
                     os.makedirs(out_dir_temp, exist_ok=True)
-                    write_runfiles(
-                        out_dir_temp,
-                        model,
-                        encoding,
-                        dataset,
-                        num_nodes,
-                        delta_norm,
-                    )
+                    for patch_size in [32, 64, 128, 256, 512]:
+                        write_runfiles(
+                            out_dir_temp,
+                            model,
+                            encoding,
+                            dataset,
+                            num_nodes,
+                            delta_norm,
+                            patch_size
+                        )
     # Polarization runs
     for model, encoding in [("FC_LATENCY", "LATENCY"), ("FC_LATENCY_XYLO", "LATENCY"),
                             ("FC_DELTA_EXPOSURE", "DELTA_EXPOSURE"),
@@ -278,17 +284,19 @@ def main(out_dir, num_nodes):
                     "DELTA_NORM" if delta_norm else "ORIGINAL",
                 )
                 os.makedirs(out_dir_temp, exist_ok=True)
-                write_bashfile(
-                    out_dir_temp,
-                    f"{dataset}-{encoding}",
-                    prepare_singlerun(
-                        model,
-                        encoding,
-                        dataset,
-                        delta_norm=delta_norm,
-                        num_nodes=num_nodes,
-                    ),
-                )
+                for patch_size in [32, 64, 128, 256, 512]:
+                    write_bashfile(
+                        out_dir_temp,
+                        f"{dataset}-{encoding}",
+                        prepare_singlerun(
+                            model,
+                            encoding,
+                            dataset,
+                            delta_norm=delta_norm,
+                            num_nodes=num_nodes,
+                            patch_size=patch_size
+                        ),
+                    )
 
 
 if __name__ == "__main__":
