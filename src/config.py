@@ -9,8 +9,8 @@ DEFAULT_HERA_LATENCY = {
     "data_source": {
         "data_path": "./data",
         "limit": 1.0,
-        "patch_size": 512,
-        "stride": 512,
+        "patch_size": 64,
+        "stride": 64,
         "dataset": "HERA",
     },
     "dataset": {
@@ -18,9 +18,9 @@ DEFAULT_HERA_LATENCY = {
     },
     "model": {
         "type": "FC_LATENCY",
-        "num_inputs": 512,
-        "num_hidden": 4096,
-        "num_outputs": 512,
+        "num_inputs": 64,
+        "num_hidden": 1024,
+        "num_outputs": 64,
         "num_layers": 5,
         "beta": 0.5,
         "alpha": 0.99,
