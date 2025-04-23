@@ -12,7 +12,7 @@ models = {
         ("FC_FORWARD_STEP", "FORWARDSTEP"),
         ("FC_DELTA_EXPOSURE", "DELTA_EXPOSURE"),
         ("FC_ANN", "ANN"),
-        ("FC_LATENCY", "DIRECT"),
+        ("FC_DIRECT_LATENCY", "DIRECT"),
     ],
     "RNN": [
         ("RNN_LATENCY", "LATENCY"),

@@ -116,7 +116,7 @@ def model_from_config(config: dict) -> pl.LightningModule:
     max_connections_weighting = config.get("max_connections_weighting", 0.0)
     max_fan_in = config.get("max_fan_in", 63)
     max_connections = config.get("max_connections", 32000)
-    if model_type == "FC_LATENCY" or model_type == "FC_LATENCY_XYLO" or model_type == "FC_LATENCY_FULL":
+    if model_type == "FC_LATENCY" or model_type == "FC_LATENCY_XYLO" or model_type == "FC_LATENCY_FULL" or model_type == "FC_DIRECT_LATENCY":
         model = LitFcLatency(
             num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, recurrent=False, l1_weighting=l1_weighting, l2_weighting=l2_weighting, fan_in_weighting=fan_in_weighting,
             max_connections=max_connections,
