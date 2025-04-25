@@ -5,12 +5,16 @@ import warnings
 from nir import NIRGraph
 from rockpool.nn.modules import from_nir
 import lightning.pytorch as pl
+import json
+import os
 
+from data.utils import reconstruct_patches
 from src.data.data_loaders import HeraDeltaNormLoader
 from src.data.data_module_builder import DataModuleBuilder
 from src.data.spike_converters import LatencySpikeConverter
 from src.hardware.conversion_example import hardware_conversion, setup_xylo
 from src.models.fc_hivemind import LitFcHiveMind
+from src.models.fc_multiplex import LitFcMultiplex
 
 alg_config = {
     "mode": "io_tied",
@@ -314,6 +318,8 @@ def reindex_weights(model: nir.NIRGraph, maximal_weights: dict, neuron_index: di
         else:
             o_indx = np.array(output_bundle)
         i_indx = np.fromiter(maximal_weights[i].keys(), dtype=int)
+        if i == 0:
+            input_bundle = list(i_indx)
         weights = model.nodes[f"layers_{i * 2}"].weight[o_indx][:, i_indx]
         try:
             bias = model.nodes[f"layers_{i * 2}"].bias[o_indx]
@@ -326,7 +332,7 @@ def reindex_weights(model: nir.NIRGraph, maximal_weights: dict, neuron_index: di
             {'output': np.array([int(len(output_bundle))])}
         ))
         out_layers[f"layers_{i * 2 + 1}"] = lif_layer
-    return out_layers
+    return out_layers, input_bundle
 
 
 def split_model_configured(model: nir.NIRGraph, hw_config: dict, split_config: dict, mode: str):
@@ -360,9 +366,9 @@ def split_model_configured(model: nir.NIRGraph, hw_config: dict, split_config: d
         new_weights_culled, new_neuron_index = cull_weights_backwards(new_weights_max, neuron_index, hw_config["hidden"]["num_neurons"], min_input_width, mode=mode)
         new_weights_culled, new_neuron_index = cull_weights_forwards(new_weights_culled, new_neuron_index, model, hw_config, mode=mode)
         new_weights_culled, new_neuron_index = cull_output_fan_in(new_weights_culled, new_neuron_index, hw_config["output"]["fan_in"], min_input_width, mode=mode)
-        new_weight_culled, new_neuron_index = cull_connections(new_weights_culled, new_neuron_index, hw_config, input_bundles[i], output_bundles[i], mode=mode)
+        new_weights_culled, new_neuron_index = cull_connections(new_weights_culled, new_neuron_index, hw_config, input_bundles[i], output_bundles[i], mode=mode)
         # Rebuild weight matrices
-        out_weights[i] = reindex_weights(model, new_weights_culled, new_neuron_index, input_bundles[i], output_bundles[i])
+        out_weights[i], input_bundles[i] = reindex_weights(model, new_weights_culled, new_neuron_index, input_bundles[i], output_bundles[i])
         out_weights[i]["input"] = nir.Input({"input": input_size, "bundle": input_bundles[i]})
         out_weights[i]["output"] = nir.Output({"output": output_size, "bundle": output_bundles[i]})
     # Build NIR models
@@ -412,12 +418,17 @@ def setup_test_data(data_path: str, batch_size: int, patch_size: int, stride: in
     print("Data module ready")
     return dataset, encoder
 
-if __name__ == "__main__":
+def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str):
     # Load example model
-    nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_171/model.nir")
+    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_171/model.nir")
+    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/32/1.0/lightning_logs/version_0/model.nir")
+    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SplitReg/lightning_logs/version_145/model.nir")
+    nir_model = nir.read(model_file_path)
+    with open(config_file_path, 'r') as ifile:
+        orig_config = json.load(ifile)
     # nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
     # Send into split
-    models, input_bundles, output_bundles  = split_model_configured(nir_model, xylo_hw_config, alg_config, mode="random")
+    models, input_bundles, output_bundles = split_model_configured(nir_model, xylo_hw_config, alg_config, mode=conversion_mode)
     # Load into SNNTorch
     snn_models = []
     for model in models:
@@ -432,20 +443,43 @@ if __name__ == "__main__":
         xylo_model = setup_xylo(config, dt=1e-4, use_simulator=True)
         xylo_models.append(xylo_model)
     trainer = pl.trainer.Trainer(
-            max_epochs=10,
-            benchmark=True,
-            default_root_dir="./",
-            num_nodes=1,
-            accelerator="cpu",
-            log_every_n_steps=4
+        max_epochs=10,
+        benchmark=True,
+        default_root_dir="./",
+        num_nodes=1,
+        accelerator="cpu",
+        log_every_n_steps=4
     )
-    encoder_config = {
-        "method": "LATENCY",
-        "exposure": 16,
-        "tau": 1.0,
-        "normalize": True,
-    }
-    dataset, encoder = setup_test_data("./data", 1, 512, 512, 0.1, encoder_config,)
-    hive_model = LitFcHiveMind(xylo_models, input_bundles, output_bundles, encoder)
+    encoder_config = orig_config["encoder"]
+    dataset, encoder = setup_test_data("./data", 16, patch_size, patch_size, 1.0, encoder_config)
+    hive_model = LitFcMultiplex(snn_models, input_bundles, output_bundles, encoder)
     metrics = trainer.test(hive_model, dataset.test_dataloader())
-    pass
+
+    accuracy = metrics[0]["test_accuracy"]
+    mse = metrics[0]["test_mse"]
+    auroc = metrics[0]["test_auroc"]
+    auprc = metrics[0]["test_auprc"]
+    f1 = metrics[0]["test_f1"]
+    output = json.dumps(
+        {
+            "accuracy": accuracy,
+            "mse": mse,
+            "auroc": auroc,
+            "auprc": auprc,
+            "f1": f1,
+        }
+    )
+    # Write output
+    with open(os.path.join(output_dir, "metrics.json"), "w") as ofile:
+        json.dump(output, ofile, indent=4)
+
+def main():
+    output_dir = "./"
+    model_file_path = "/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/32/1.0/lightning_logs/version_0/model.nir"
+    config_file_path = "/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/32/1.0/lightning_logs/version_0/config.json"
+    patch_size = 32
+    conversion_mode = "maximal"
+    test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode)
+
+if __name__ == "__main__":
+    main()

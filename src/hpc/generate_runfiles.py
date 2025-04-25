@@ -259,7 +259,7 @@ def main(out_dir, num_nodes):
                         "DELTA_NORM" if delta_norm else "ORIGINAL",
                     )
                     os.makedirs(out_dir_temp, exist_ok=True)
-                    for patch_size in [32, 64, 128, 256, 512]:
+                    for patch_size in [8, 32, 64, 128, 256, 512]:
                         write_runfiles(
                             out_dir_temp,
                             model,
@@ -284,7 +284,7 @@ def main(out_dir, num_nodes):
                     "DELTA_NORM" if delta_norm else "ORIGINAL",
                 )
                 os.makedirs(out_dir_temp, exist_ok=True)
-                for patch_size in [32, 64, 128, 256, 512]:
+                for patch_size in [8, 32, 64, 128, 256, 512]:
                     write_bashfile(
                         out_dir_temp,
                         f"{dataset}-{encoding}",

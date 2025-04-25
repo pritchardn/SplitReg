@@ -9,7 +9,7 @@ from time import sleep
 # Rockpool imports
 from rockpool.nn.modules import from_nir, LinearTorch, LIFNeuronTorch
 from rockpool.devices.xylo.syns61201 import mapper, config_from_specification, XyloSim
-from rockpool.transform.quantize_methods import channel_quantize
+from rockpool.transform.quantize_methods import channel_quantize, global_quantize
 from rockpool.devices.xylo.helper import find_xylo_hdks
 
 # Project-specific imports
@@ -137,6 +137,7 @@ def hardware_conversion(rockpool_model):
     graph = rockpool_model.as_graph()
     spec = mapper(graph)
     print("Applying channel quantization")
+    # spec["threshold_out"] *= 1
     quantized_spec = channel_quantize(**spec)
     print("Generating hardware configuration")
     config, is_valid, msg = config_from_specification(**quantized_spec)
