@@ -14,12 +14,13 @@ def prepare_conversion(target_dir: str, patch_size: int, conversion_method: str,
         f"""#!/bin/bash
 #SBATCH --job-name=SNN-SPLITREG-{patch_size}-{conversion_method}
 #SBATCH --nodes=1
-#SBATCH --time=24:00:00
+#SBATCH --time=6:00:00
 #SBATCH --output=super_%A_%a.out
 #SBATCH --error=super_%A_%a.err
 #SBATCH --array=0-{num_models-1}
 #SBATCH --partition=gpu
 #SBATCH --account=pawsey0411-gpu
+#SBATCH --gres=gpu:1
         
 export DATA_PATH="/scratch/pawsey0411/npritchard/data"
 export BASE_DIR="{target_dir}"
@@ -38,7 +39,7 @@ export MPICH_GPU_SUPPORT_ENABLED=1
 export OMP_PLACES=cores     
 export OMP_PROC_BIND=close  
 
-srun -N 1 -n 1 -c 8 --gpus-per-task=1 --gpu-bind=closest python3 ./hardware/splitter.py
+srun -N 1 -n 1 -c 8 --gpus-per-task=1 --gpu-bind=closest python3 splitter_main.py
 """
     )
     return runfiletext
@@ -57,9 +58,6 @@ def main(out_dir: str, in_dir: str, num_models=10):
             )
 
 
-# snn-splitreg/FC_LATENCY/LATENCY/HERA/True/{PATCH_SIZE}/1.0/lightning_logs/version_{x}/
-
-
 if __name__ == "__main__":
     in_dir = "/scratch/pawsey0411/npritchard/outputs/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/"
-    main(f".{os.sep}src{os.sep}hpc{os.sep}pawsey{os.sep}SPLITS", in_dir)
+    main(f"./src/hpc/pawsey/SPLITS", in_dir)
