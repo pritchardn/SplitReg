@@ -5,7 +5,7 @@ import torch
 import lightning.pytorch as pl
 from tqdm import tqdm
 
-from src.evaluation import calculate_metrics
+from evaluation import calculate_metrics
 
 
 class LitFcMultiplex(pl.LightningModule):
@@ -89,6 +89,7 @@ class LitFcMultiplex(pl.LightningModule):
     def forward(self, x):
         output = torch.zeros_like(x)
         for i in range(len(self.models)):
+            self.modes[i].to(x.device)
             outputs = self.output_bundles[i]
             inputs = self.input_bundles[i]
             output[..., outputs, :] = self._infer(x[..., inputs, :], i)
