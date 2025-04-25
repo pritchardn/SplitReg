@@ -397,7 +397,6 @@ def convert_rockpool(model: nir.NIRGraph):
 def setup_test_data(data_path: str, batch_size: int, patch_size: int, stride: int, limit: float, encoder_params: dict):
     """
     Sets up data loader, encoder and data module
-    TODO: Masked dataloader based on model
     """
     print("Setting up data loader")
     data_source = HeraDeltaNormLoader(
@@ -418,15 +417,12 @@ def setup_test_data(data_path: str, batch_size: int, patch_size: int, stride: in
     print("Data module ready")
     return dataset, encoder
 
-def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str):
+
+def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str, data_path: str):
     # Load example model
-    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_171/model.nir")
-    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/32/1.0/lightning_logs/version_0/model.nir")
-    # nir_model = nir.read("/Users/npritchard/PycharmProjects/SplitReg/lightning_logs/version_145/model.nir")
     nir_model = nir.read(model_file_path)
     with open(config_file_path, 'r') as ifile:
         orig_config = json.load(ifile)
-    # nir_model = nir.read("C:\\Users\\Nicho\\PycharmProjects\\SNN-RFI-SUPER\\lightning_logs\\version_182\\model.nir")
     # Send into split
     models, input_bundles, output_bundles = split_model_configured(nir_model, xylo_hw_config, alg_config, mode=conversion_mode)
     # Load into SNNTorch
@@ -445,13 +441,13 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
     trainer = pl.trainer.Trainer(
         max_epochs=10,
         benchmark=True,
-        default_root_dir="./",
+        default_root_dir=output_dir,
         num_nodes=1,
         accelerator="cpu",
         log_every_n_steps=4
     )
     encoder_config = orig_config["encoder"]
-    dataset, encoder = setup_test_data("./data", 16, patch_size, patch_size, 1.0, encoder_config)
+    dataset, encoder = setup_test_data(data_path, 16, patch_size, patch_size, 1.0, encoder_config)
     hive_model = LitFcMultiplex(snn_models, input_bundles, output_bundles, encoder)
     metrics = trainer.test(hive_model, dataset.test_dataloader())
 
@@ -473,11 +469,13 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
     with open(os.path.join(output_dir, f"{conversion_mode}-metrics.json"), "w") as ofile:
         json.dump(output, ofile, indent=4)
 
+
 def main():
     base_dir = os.getenv("BASE_DIR")
     model_num = os.getenv("SLURM_ARRAY_TASK_ID")
     patch_size = int(os.getenv("PATCH_SIZE"))
     conversion_mode = os.getenv("CONVERSION_MODE")
+    data_path = os.getenv("DATA_PATH", "./data")
     model_dir = os.path.join(base_dir, f"version_{model_num}")
     output_dir = os.path.join(model_dir, "splits")
     os.makedirs(output_dir, exist_ok=True)
@@ -485,7 +483,7 @@ def main():
     config_file_path = os.path.join(model_dir, "config.json")
     print(output_dir)
     print(model_file_path)
-    test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode)
+    test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode, data_path)
 
 
 if __name__ == "__main__":
