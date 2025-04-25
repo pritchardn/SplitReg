@@ -13,10 +13,10 @@ from rockpool.transform.quantize_methods import channel_quantize, global_quantiz
 from rockpool.devices.xylo.helper import find_xylo_hdks
 
 # Project-specific imports
-from src.data.data_loaders import HeraDeltaNormLoader
-from src.data.data_module_builder import DataModuleBuilder
-from src.data.spike_converters import LatencySpikeConverter
-from src.evaluation import calculate_metrics
+from data.data_loaders import HeraDeltaNormLoader
+from data.data_module_builder import DataModuleBuilder
+from data.spike_converters import LatencySpikeConverter
+from evaluation import calculate_metrics
 
 # --- Configuration Constants ---
 # TODO: These should ideally be arguments or read from a config file
