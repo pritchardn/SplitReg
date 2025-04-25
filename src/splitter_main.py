@@ -8,13 +8,10 @@ import lightning.pytorch as pl
 import json
 import os
 
-from data.utils import reconstruct_patches
-from src.data.data_loaders import HeraDeltaNormLoader
-from src.data.data_module_builder import DataModuleBuilder
-from src.data.spike_converters import LatencySpikeConverter
-from src.hardware.conversion_example import hardware_conversion, setup_xylo
-from src.models.fc_hivemind import LitFcHiveMind
-from src.models.fc_multiplex import LitFcMultiplex
+from data.data_loaders import HeraDeltaNormLoader
+from data.data_module_builder import DataModuleBuilder
+from data.spike_converters import LatencySpikeConverter
+from models.fc_multiplex import LitFcMultiplex
 
 alg_config = {
     "mode": "io_tied",
@@ -429,21 +426,11 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
     snn_models = []
     for model in models:
         snn_models.append(snntorch.import_from_nir(model))
-    # Load into Rockpool
-    rockpool_models = []
-    xylo_models = []
-    for model in models:
-        rockpool_models.append(convert_rockpool(model))
-        rockpool_model = rockpool_models[-1]
-        config, _ = hardware_conversion(rockpool_model)
-        xylo_model = setup_xylo(config, dt=1e-4, use_simulator=True)
-        xylo_models.append(xylo_model)
     trainer = pl.trainer.Trainer(
         max_epochs=10,
         benchmark=True,
         default_root_dir=output_dir,
         num_nodes=1,
-        accelerator="cpu",
         log_every_n_steps=4
     )
     encoder_config = orig_config["encoder"]
