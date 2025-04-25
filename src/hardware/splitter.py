@@ -470,16 +470,23 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
         }
     )
     # Write output
-    with open(os.path.join(output_dir, "metrics.json"), "w") as ofile:
+    with open(os.path.join(output_dir, f"{conversion_mode}-metrics.json"), "w") as ofile:
         json.dump(output, ofile, indent=4)
 
 def main():
-    output_dir = "./"
-    model_file_path = "/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/32/1.0/lightning_logs/version_0/model.nir"
-    config_file_path = "/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/32/1.0/lightning_logs/version_0/config.json"
-    patch_size = 32
-    conversion_mode = "maximal"
+    base_dir = os.getenv("BASE_DIR")
+    model_num = os.getenv("SLURM_ARRAY_TASK_ID")
+    patch_size = int(os.getenv("PATCH_SIZE"))
+    conversion_mode = os.getenv("CONVERSION_MODE")
+    model_dir = os.path.join(base_dir, f"version_{model_num}")
+    output_dir = os.path.join(model_dir, "splits")
+    os.makedirs(output_dir, exist_ok=True)
+    model_file_path = os.path.join(model_dir, "model.nir")
+    config_file_path = os.path.join(model_dir, "config.json")
+    print(output_dir)
+    print(model_file_path)
     test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode)
+
 
 if __name__ == "__main__":
     main()
