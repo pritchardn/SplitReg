@@ -11,3 +11,6 @@ mpi4py
 onnx
 tensorboard
 lightning
+samna
+rockpool
+bitstruct
