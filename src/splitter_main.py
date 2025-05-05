@@ -11,6 +11,8 @@ import os
 from data.data_loaders import HeraDeltaNormLoader
 from data.data_module_builder import DataModuleBuilder
 from data.spike_converters import LatencySpikeConverter
+from hardware.conversion_example import hardware_conversion, setup_xylo, evaluate_idle_power, evaluate_power
+from models.fc_hivemind import LitFcHiveMind
 from models.fc_multiplex import LitFcMultiplex
 
 alg_config = {
@@ -312,9 +314,13 @@ def reindex_weights(model: nir.NIRGraph, maximal_weights: dict, neuron_index: di
         lif_layer = model.nodes[f"layers_{i * 2 + 1}"]
         if i < num_layers - 1:
             o_indx = np.fromiter(maximal_weights[i+1].keys(), dtype=int)
+            if len(o_indx) > xylo_hw_config["hidden"]["fan_in"]:
+                o_indx = o_indx[:xylo_hw_config["hidden"]["fan_in"]]
         else:
             o_indx = np.array(output_bundle)
         i_indx = np.fromiter(maximal_weights[i].keys(), dtype=int)
+        if len(i_indx) > xylo_hw_config["hidden"]["fan_in"]:
+            i_indx = i_indx[:xylo_hw_config["hidden"]["fan_in"]]
         if i == 0:
             input_bundle = list(i_indx)
         weights = model.nodes[f"layers_{i * 2}"].weight[o_indx][:, i_indx]
@@ -415,17 +421,13 @@ def setup_test_data(data_path: str, batch_size: int, patch_size: int, stride: in
     return dataset, encoder
 
 
-def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str, data_path: str):
+def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str, data_path: str, limit: float, rockpool: bool):
     # Load example model
     nir_model = nir.read(model_file_path)
     with open(config_file_path, 'r') as ifile:
         orig_config = json.load(ifile)
     # Send into split
     models, input_bundles, output_bundles = split_model_configured(nir_model, xylo_hw_config, alg_config, mode=conversion_mode)
-    # Load into SNNTorch
-    snn_models = []
-    for model in models:
-        snn_models.append(snntorch.import_from_nir(model))
     trainer = pl.trainer.Trainer(
         max_epochs=10,
         benchmark=True,
@@ -434,8 +436,34 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
         log_every_n_steps=4
     )
     encoder_config = orig_config["encoder"]
-    dataset, encoder = setup_test_data(data_path, 16, patch_size, patch_size, 1.0, encoder_config)
-    hive_model = LitFcMultiplex(snn_models, input_bundles, output_bundles, encoder)
+    dataset, encoder = setup_test_data(data_path, 16, patch_size, patch_size, limit, encoder_config)
+    if rockpool:
+        # Convert models into xylo models
+        rockpool_models = []
+        xylo_models = []
+        for model in models:
+            rockpool_models.append(convert_rockpool(model))
+            rockpool_model = rockpool_models[-1]
+            config, _ = hardware_conversion(rockpool_model)
+            xylo_model = setup_xylo(config, dt=1e-4, use_simulator=True)
+            xylo_models.append(xylo_model)
+        # Build HiveMind Model
+        hive_model = LitFcHiveMind(xylo_models, input_bundles, output_bundles, encoder)
+        active_power_per_channel = evaluate_power(xylo_models[0], dataset, encoder)
+        idle_power_per_channel = evaluate_idle_power(xylo_models[0])
+        output = json.dumps(
+            {"idle": idle_power_per_channel, "active": active_power_per_channel},
+        )
+        # Write output
+        with open(os.path.join(output_dir, f"{conversion_mode}-power_metrics.json"), "w") as ofile:
+            json.dump(output, ofile, indent=4)
+        exit(0)
+    else:
+        # Load into SNNTorch
+        snn_models = []
+        for model in models:
+            snn_models.append(snntorch.import_from_nir(model))
+        hive_model = LitFcMultiplex(snn_models, input_bundles, output_bundles, encoder)
     metrics = trainer.test(hive_model, dataset.test_dataloader())
 
     accuracy = metrics[0]["test_accuracy"]
@@ -461,16 +489,18 @@ def main():
     base_dir = os.getenv("BASE_DIR")
     model_num = os.getenv("SLURM_ARRAY_TASK_ID")
     patch_size = int(os.getenv("PATCH_SIZE"))
+    limit = float(os.getenv("LIMIT", 1.0))
+    rockpool_test = os.getenv("ROCKPOOL", False) == "True"
     conversion_mode = os.getenv("CONVERSION_MODE")
     data_path = os.getenv("DATA_PATH", "./data")
     model_dir = os.path.join(base_dir, f"version_{model_num}")
-    output_dir = os.path.join(model_dir, "splits")
+    output_dir = os.path.join(model_dir, "splits-test")
     os.makedirs(output_dir, exist_ok=True)
     model_file_path = os.path.join(model_dir, "model.nir")
     config_file_path = os.path.join(model_dir, "config.json")
     print(output_dir)
     print(model_file_path)
-    test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode, data_path)
+    test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode, data_path, limit, rockpool_test)
 
 
 if __name__ == "__main__":
