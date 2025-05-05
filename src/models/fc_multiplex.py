@@ -89,7 +89,7 @@ class LitFcMultiplex(pl.LightningModule):
     def forward(self, x):
         output = torch.zeros_like(x)
         for i in range(len(self.models)):
-            self.modes[i].to(x.device)
+            self.models[i].to(x.device)
             outputs = self.output_bundles[i]
             inputs = self.input_bundles[i]
             output[..., outputs, :] = self._infer(x[..., inputs, :], i)
