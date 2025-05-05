@@ -20,12 +20,14 @@ from evaluation import calculate_metrics
 
 # --- Configuration Constants ---
 # TODO: These should ideally be arguments or read from a config file
-NIR_MODEL_PATH = "/Users/npritchard/PycharmProjects/SNN-RFI-SUPER/lightning_logs/version_170/model.nir"
+NIR_MODEL_PATH = "/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY_REG/LATENCY/HERA/True/8/1.0/lightning_logs/version_2/model.nir"
 DATA_PATH = "./data"
 USE_SIMULATOR = True
 
+FREQ_MHZ = 50 # 0.00001818 (3.52 / 64)
+
 # Model architecture parameters (should match the loaded NIR model)
-NUM_LAYERS = 3
+NUM_LAYERS = 4
 NUM_INPUT = 8
 NUM_HIDDEN = 63  # Based on Xylo Hardware Specs
 NUM_OUTPUT = 8
@@ -39,7 +41,7 @@ STRIDE = 8
 
 # Encoder parameters
 ENCODER_METHOD = "LATENCY"
-ENCODER_EXPOSURE = 16
+ENCODER_EXPOSURE = 62
 ENCODER_TAU = 1.0
 ENCODER_NORMALIZE = True
 
@@ -66,7 +68,9 @@ def load_and_convert_model(nir_path: str, num_layers: int, num_hidden: int, num_
             for i in range(num_layers):
                 lif_node_name = f"layers_{i * 2 + 1}"
                 if i == 0:
-                    shape = np.array([num_hidden])
+                    shape = np.array([num_output * 2])
+                elif i == 1:
+                    shape = np.array([num_hidden])  # NB Assume equal input/output
                 elif i == num_layers - 1:
                     shape = np.array([num_output])
                 else:
@@ -260,13 +264,12 @@ def evaluate_idle_power(xylo_model):
 def evaluate_power(xylo_model, dataset, encoder):
     print("Evaluating active power consumption")
     xylo_model._power_buf.get_events()
-    # Run through inference TODO: make batched
     for x, y in tqdm(dataset.test_dataloader(), desc="Evaluating"):
         x = x.detach().cpu().numpy().astype(np.int16)
         for ex in x:
-            output = []
-            for t in range(x.shape[-1]):
-                output.append(xylo_model(ex[..., t].squeeze(1))[0])
+            new_shape = (ex.shape[0] * ex.shape[-1], ex.shape[1], ex.shape[2])
+            ex_time = ex.reshape(new_shape).squeeze(1)
+            xylo_model(ex_time, record_power=True)
     power = xylo_model._power_buf.get_events()
     power_active = ([], [], [], [])
     for p in power:
