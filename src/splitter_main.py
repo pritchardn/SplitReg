@@ -11,6 +11,8 @@ import os
 from data.data_loaders import HeraDeltaNormLoader
 from data.data_module_builder import DataModuleBuilder
 from data.spike_converters import LatencySpikeConverter
+from data.utils import reconstruct_patches
+from evaluation import final_evaluation
 from hardware.conversion_example import hardware_conversion, setup_xylo, evaluate_idle_power, evaluate_power
 from models.fc_hivemind import LitFcHiveMind
 from models.fc_multiplex import LitFcMultiplex
@@ -418,10 +420,10 @@ def setup_test_data(data_path: str, batch_size: int, patch_size: int, stride: in
     builder.set_encoding(encoder)
     dataset = builder.build(batch_size=batch_size)
     print("Data module ready")
-    return dataset, encoder
+    return dataset, encoder, data_source
 
 
-def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str, data_path: str, limit: float, rockpool: bool):
+def test_split(output_dir: str, model_file_path: str, config_file_path: str, patch_size: int, conversion_mode: str, data_path: str, limit: float, rockpool: bool, plot: bool, frequency: float=50):
     # Load example model
     nir_model = nir.read(model_file_path)
     with open(config_file_path, 'r') as ifile:
@@ -436,7 +438,7 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
         log_every_n_steps=4
     )
     encoder_config = orig_config["encoder"]
-    dataset, encoder = setup_test_data(data_path, 16, patch_size, patch_size, limit, encoder_config)
+    dataset, encoder, data_source = setup_test_data(data_path, 16, patch_size, patch_size, limit, encoder_config)
     if rockpool:
         # Convert models into xylo models
         rockpool_models = []
@@ -445,19 +447,18 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
             rockpool_models.append(convert_rockpool(model))
             rockpool_model = rockpool_models[-1]
             config, _ = hardware_conversion(rockpool_model)
-            xylo_model = setup_xylo(config, dt=1e-4, use_simulator=True)
+            xylo_model = setup_xylo(config, dt=1e-4, use_simulator=False, desired_frequency=frequency)
             xylo_models.append(xylo_model)
-        # Build HiveMind Model
-        hive_model = LitFcHiveMind(xylo_models, input_bundles, output_bundles, encoder)
-        active_power_per_channel = evaluate_power(xylo_models[0], dataset, encoder)
+            break
         idle_power_per_channel = evaluate_idle_power(xylo_models[0])
+        active_power_per_channel = evaluate_power(xylo_models[0], dataset, encoder)
         output = json.dumps(
-            {"idle": idle_power_per_channel, "active": active_power_per_channel},
+            {"idle": list(idle_power_per_channel), "active": active_power_per_channel},
         )
         # Write output
-        with open(os.path.join(output_dir, f"{conversion_mode}-power_metrics.json"), "w") as ofile:
+        with open(os.path.join(output_dir, f"{conversion_mode}-{frequency}-power_metrics.json"), "w") as ofile:
             json.dump(output, ofile, indent=4)
-        exit(0)
+        return
     else:
         # Load into SNNTorch
         snn_models = []
@@ -484,23 +485,52 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
     with open(os.path.join(output_dir, f"{conversion_mode}-metrics.json"), "w") as ofile:
         json.dump(output, ofile, indent=4)
 
+    if plot:
+        try:
+            mask_orig = reconstruct_patches(
+                data_source.fetch_test_y(),
+                data_source.original_size,
+                data_source.stride,
+            )
+            original_data = reconstruct_patches(
+                data_source.fetch_test_x(),
+                data_source.original_size,
+                data_source.stride,
+            )
+            final_evaluation(
+                hive_model,
+                dataset,
+                encoder,
+                original_data,
+                mask_orig,
+                data_source.fetch_test_x(),
+                data_source.fetch_test_y(),
+                encoder.exposure,
+                output_dir,
+            )
+        except RuntimeError as e:
+            print(f"Error during evaluation: {e}")
+
 
 def main():
-    base_dir = os.getenv("BASE_DIR")
-    model_num = os.getenv("SLURM_ARRAY_TASK_ID")
-    patch_size = int(os.getenv("PATCH_SIZE"))
-    limit = float(os.getenv("LIMIT", 1.0))
-    rockpool_test = os.getenv("ROCKPOOL", False) == "True"
-    conversion_mode = os.getenv("CONVERSION_MODE")
-    data_path = os.getenv("DATA_PATH", "./data")
-    model_dir = os.path.join(base_dir, f"version_{model_num}")
-    output_dir = os.path.join(model_dir, "splits-test")
-    os.makedirs(output_dir, exist_ok=True)
-    model_file_path = os.path.join(model_dir, "model.nir")
-    config_file_path = os.path.join(model_dir, "config.json")
-    print(output_dir)
-    print(model_file_path)
-    test_split(output_dir, model_file_path, config_file_path, patch_size, conversion_mode, data_path, limit, rockpool_test)
+    for patch_size in [8, 32, 64, 128, 256, 512]:
+        base_dir = f"/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY_REG/LATENCY/HERA/True/{patch_size}/1.0/lightning_logs"
+        plot = os.getenv("PLOT", False)
+        for model_num in range(1, 10):
+            input_patch_size = int(os.getenv("PATCH_SIZE"))
+            limit = float(os.getenv("LIMIT", 1.0))
+            rockpool_test = os.getenv("ROCKPOOL", False) == "True"
+            for conversion_mode in ["maximal", "naive", "random"]:
+                for frequency in [50, 6.25]:
+                    data_path = os.getenv("DATA_PATH", "./data")
+                    model_dir = os.path.join(base_dir, f"version_{model_num}")
+                    output_dir = os.path.join(model_dir, "splits-test")
+                    os.makedirs(output_dir, exist_ok=True)
+                    model_file_path = os.path.join(model_dir, "model.nir")
+                    config_file_path = os.path.join(model_dir, "config.json")
+                    print(output_dir)
+                    print(model_file_path)
+                    test_split(output_dir, model_file_path, config_file_path, input_patch_size, conversion_mode, data_path, limit, rockpool_test, plot, frequency)
 
 
 if __name__ == "__main__":

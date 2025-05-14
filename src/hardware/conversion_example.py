@@ -9,6 +9,7 @@ from time import sleep
 # Rockpool imports
 from rockpool.nn.modules import from_nir, LinearTorch, LIFNeuronTorch
 from rockpool.devices.xylo.syns61201 import mapper, config_from_specification, XyloSim
+from rockpool.devices.xylo.syns61201.xa2_devkit_utils import set_xylo_core_clock_freq
 from rockpool.transform.quantize_methods import channel_quantize, global_quantize
 from rockpool.devices.xylo.helper import find_xylo_hdks
 
@@ -149,7 +150,7 @@ def hardware_conversion(rockpool_model):
     print("Hardware generation successful")
     return config, spec
 
-def setup_xylo(config, dt, use_simulator=True):
+def setup_xylo(config, dt, use_simulator=True, desired_frequency=50):
     """
     Sets up either Xylo hardware interface or simulator
     :param config: Hardware configuration dictionary
@@ -163,13 +164,21 @@ def setup_xylo(config, dt, use_simulator=True):
         print("Simulator ready")
         return xylo_model
     else:
-        print("Setting up hardware")
-        hdks, mods, _ = find_xylo_hdks()
-        if not hdks:
-            raise ValueError("Could not find any connected HDKs")
-        hdk = hdks[0]
-        mod = mods[0]
-        xylo_model = mod.XyloSamna(hdk, config=config, dt=dt)
+        attempts = 0
+        while attempts < 5:
+            try:
+                print("Setting up hardware")
+                hdks, mods, _ = find_xylo_hdks()
+                if not hdks:
+                    print("Could not find any connected HDKs")
+                hdk = hdks[0]
+                mod = mods[0]
+                set_xylo_core_clock_freq(hdk, desired_frequency)
+                xylo_model = mod.XyloSamna(hdk, config=config, dt=dt)
+                break
+            except ValueError as e:
+                print(e)
+                attempts += 1
         print("Xylo Hardware interface ready")
         return xylo_model
 
@@ -252,7 +261,7 @@ def evaluate_idle_power(xylo_model):
     power_idle = ([], [], [], [])
     for p in power:
         power_idle[p.channel].append(p.value)
-    idle_power_per_channel = np.mean(np.stack(power_idle), axis=1)
+    idle_power_per_channel = np.stack(np.mean(power_idle, axis=1))
     channels = samna.xyloA2TestBoard.MeasurementChannels
     io_power = idle_power_per_channel[channels.Io]
     afe_core_power = idle_power_per_channel[channels.LogicAfe]
@@ -264,24 +273,40 @@ def evaluate_idle_power(xylo_model):
 def evaluate_power(xylo_model, dataset, encoder):
     print("Evaluating active power consumption")
     xylo_model._power_buf.get_events()
+    i = 0
+    total_recordings = []
+
     for x, y in tqdm(dataset.test_dataloader(), desc="Evaluating"):
         x = x.detach().cpu().numpy().astype(np.int16)
         for ex in x:
             new_shape = (ex.shape[0] * ex.shape[-1], ex.shape[1], ex.shape[2])
             ex_time = ex.reshape(new_shape).squeeze(1)
-            xylo_model(ex_time, record_power=True)
-    power = xylo_model._power_buf.get_events()
-    power_active = ([], [], [], [])
-    for p in power:
-        power_active[p.channel].append(p.value)
-    active_power_per_channel = np.mean(np.stack(power_active), axis=1)
-    channels = samna.xyloA2TestBoard.MeasurementChannels
-    io_power = active_power_per_channel[channels.Io]
-    afe_core_power = active_power_per_channel[channels.LogicAfe]
-    afe_ldo_power = active_power_per_channel[channels.IoAfe]
-    snn_core_power = active_power_per_channel[channels.Logic]
-    print(f'XyloAudio 2\nAll IO:\t\t{io_power * 1e6:.1f} µW\nAFE core:\t{afe_core_power * 1e6:.1f} µW\nInternal LDO:\t{afe_ldo_power * 1e6:.1f} µW\nSNN core logic:\t{snn_core_power*1e6:.1f} µW')
-    return active_power_per_channel
+            _, _, record_dict = xylo_model(ex_time, record_power=True)
+            total_recordings.append(record_dict)
+        i += 1
+        if i % 5 == 0:
+            break
+    # power = xylo_model._power_buf.get_events()
+    sum_output = {}
+    num_subtractions = 0
+    for recording in total_recordings:
+        subtract_count = False
+        for key, value in recording.items():
+            if isinstance(value, np.ndarray) and len(value) == 0:
+                subtract_count = True
+            else:
+                sum_output[key] = sum_output.get(key, 0.) + np.mean(value)
+        if subtract_count:
+            num_subtractions += 1
+    for key, value in sum_output.items():
+        sum_output[key] = sum_output.get(key, 0.) / (len(total_recordings) - num_subtractions)
+    io_power = sum_output["io_power"]
+    afe_core_power = sum_output["afe_core_power"]
+    afe_ldo_power = sum_output["afe_ldo_power"]
+    snn_core_power = sum_output["snn_core_power"]
+    inf_duration = sum_output["inf_duration"]
+    print(f'XyloAudio 2\nAll IO:\t\t{io_power * 1e6:.1f} µW\nAFE core:\t{afe_core_power * 1e6:.1f} µW\nInternal LDO:\t{afe_ldo_power * 1e6:.1f} µW\nSNN core logic:\t{snn_core_power*1e6:.1f} µW \t inference_time {inf_duration}')
+    return sum_output
 
 def main():
     rockpool_model = load_and_convert_model(NIR_MODEL_PATH, NUM_LAYERS, NUM_HIDDEN, NUM_OUTPUT)
