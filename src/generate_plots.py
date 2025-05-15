@@ -120,7 +120,7 @@ def plot_example(x, y, spike_x, frequency_width, stride, exposure, i, title: str
 
 
 def setup_config(model, exposure, exposure_mode, stride):
-    config = get_default_params("HERA", model, 128, exposure_mode)
+    config = get_default_params("HERA", model, 128, exposure_mode, patch_size=128)
     frequency_width = stride
     if model == "FC_FORWARD_STEP":
         frequency_width *= 2
@@ -185,12 +185,12 @@ def main_all(stride, exposure, limit: int = 10, outdir="./"):
     with multiprocessing.Pool() as pool:
         for model, exposure_mode, plot_mode in tqdm([
             ("FC_LATENCY", None, 1),
-            ("FC_RATE", None, 1),
-            ("FC_DELTA", None, 2),
-            ("FC_DELTA_EXPOSURE", None, 1),
-            ("FC_FORWARD_STEP", "first", 2),
-            ("FC_FORWARD_STEP", "direct", 2),
-            ("FC_FORWARD_STEP", "latency", 2),
+            # ("FC_RATE", None, 1),
+            # ("FC_DELTA", None, 2),
+            # ("FC_DELTA_EXPOSURE", None, 1),
+            # ("FC_FORWARD_STEP", "first", 2),
+            # ("FC_FORWARD_STEP", "direct", 2),
+            # ("FC_FORWARD_STEP", "latency", 2),
         ]):
             print(model)
             config, frequency_width, used_exposure = setup_config(
@@ -211,9 +211,9 @@ def main_all(stride, exposure, limit: int = 10, outdir="./"):
 
 
 if __name__ == "__main__":
-    model = "FC_FORWARD_STEP"
+    model = "FC_LATENCY"
     exposure_mode = "first"
-    stride = 32
+    stride = 128
     exposure = 4
     # main_single(model, exposure_mode, stride, exposure, limit=10)
     main_all(stride, exposure, limit=1280, outdir="./example_plots")
