@@ -16,13 +16,7 @@ import torch
 
 from data.data_loaders import (
     HeraDataLoader,
-    HeraPolarizationDoPDataLoader,
-    HeraPolarizationFullDataLoader,
-    HeraPolarizationDeltaNormFullDataLoader,
-    HeraPolarizationDeltaNormDoPDataLoader,
-    LofarDataLoader,
     HeraDeltaNormLoader,
-    LofarDeltaNormLoader, MixedDeltaNormLoader,
 )
 from data.data_module import ConfiguredDataModule
 from data.data_module_builder import DataModuleBuilder
@@ -52,22 +46,6 @@ def data_source_from_config(config: dict) -> RawDataLoader:
             data_source = HeraDataLoader(
                 data_path, patch_size=patch_size, stride=stride, limit=limit
             )
-    elif dataset == "LOFAR":
-        if delta_normalization:
-            data_source = LofarDeltaNormLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
-        else:
-            data_source = LofarDataLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
-    elif dataset == "MIXED":
-        if delta_normalization:
-            data_source = MixedDeltaNormLoader(
-                data_path, patch_size=patch_size, stride=stride, limit=limit
-            )
-        else:
-            NotImplementedError(f"Dataset {dataset} must use delta normalization")
     else:
         raise NotImplementedError(f"Dataset {dataset} is not supported.")
     return data_source

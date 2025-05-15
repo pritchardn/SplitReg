@@ -8,7 +8,6 @@ import lightning.pytorch as pl
 import torch
 from torch import nn
 import snntorch as snn
-import snntorch.functional as functional
 from sklearn.metrics import balanced_accuracy_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 

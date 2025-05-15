@@ -9,8 +9,7 @@ models = {
         ("FC_LATENCY", "LATENCY"),
     ]
 }
-datasets = ["HERA", "LOFAR"]
-forwardstep_exposures = ["direct", "first", "latency"]
+datasets = ["HERA"]
 delta_normalization = [True, False]
 
 
@@ -141,94 +140,44 @@ def write_bashfile(out_dir, name, runfiletext):
 
 
 def write_runfiles(out_dir, model, encoding, dataset, num_nodes, delta_norm, patch_size):
-    if encoding == "FORWARDSTEP":
-        for forward_step_exposure in forwardstep_exposures:
-            write_bashfile(
-                out_dir,
-                f"{dataset}-{encoding}-{forward_step_exposure}-{patch_size}",
-                prepare_singlerun(
-                    model,
-                    encoding,
-                    dataset,
-                    forward_step_exposure,
-                    delta_norm=delta_norm,
-                    num_nodes=num_nodes,
-                    patch_size=patch_size,
-                ),
-            )
-    else:
-        write_bashfile(
-            out_dir,
-            f"{dataset}-{encoding}-{patch_size}",
-            prepare_singlerun(
-                model,
-                encoding,
-                dataset,
-                delta_norm=delta_norm,
-                num_nodes=num_nodes,
-                patch_size=patch_size,
-            ),
-        )
+    write_bashfile(
+        out_dir,
+        f"{dataset}-{encoding}-{patch_size}",
+        prepare_singlerun(
+            model,
+            encoding,
+            dataset,
+            delta_norm=delta_norm,
+            num_nodes=num_nodes,
+            patch_size=patch_size,
+        ),
+    )
     limit = 10
-    if encoding == "FORWARDSTEP":
-        for forward_step_exposure in forwardstep_exposures:
-            write_bashfile(
-                out_dir,
-                f"optuna-{dataset}-{encoding}-{limit}-{forward_step_exposure}-{patch_size}",
-                prepare_optuna(
-                    model,
-                    encoding,
-                    dataset,
-                    limit,
-                    forward_step_exposure,
-                    delta_norm=delta_norm,
-                    num_nodes=num_nodes,
-                ),
-            )
-    else:
-        write_bashfile(
-            out_dir,
-            f"optuna-{dataset}-{encoding}-{limit}-{patch_size}",
-            prepare_optuna(
-                model,
-                encoding,
-                dataset,
-                limit,
-                delta_norm=delta_norm,
-                num_nodes=num_nodes,
-            ),
-        )
+    write_bashfile(
+        out_dir,
+        f"optuna-{dataset}-{encoding}-{limit}-{patch_size}",
+        prepare_optuna(
+            model,
+            encoding,
+            dataset,
+            limit,
+            delta_norm=delta_norm,
+            num_nodes=num_nodes,
+        ),
+    )
     limit = 100
-    if dataset == "LOFAR":
-        limit = 15
-    if encoding == "FORWARDSTEP":
-        for forward_step_exposure in forwardstep_exposures:
-            write_bashfile(
-                out_dir,
-                f"optuna-{dataset}-{encoding}-{limit}-{forward_step_exposure}-{patch_size}",
-                prepare_optuna(
-                    model,
-                    encoding,
-                    dataset,
-                    limit,
-                    forward_step_exposure,
-                    delta_norm=delta_norm,
-                    num_nodes=num_nodes,
-                ),
-            )
-    else:
-        write_bashfile(
-            out_dir,
-            f"optuna-{dataset}-{encoding}-{limit}-{patch_size}",
-            prepare_optuna(
-                model,
-                encoding,
-                dataset,
-                limit,
-                delta_norm=delta_norm,
-                num_nodes=num_nodes,
-            ),
-        )
+    write_bashfile(
+        out_dir,
+        f"optuna-{dataset}-{encoding}-{limit}-{patch_size}",
+        prepare_optuna(
+            model,
+            encoding,
+            dataset,
+            limit,
+            delta_norm=delta_norm,
+            num_nodes=num_nodes,
+        ),
+    )
 
 
 def main(out_dir, num_nodes):
@@ -254,34 +203,6 @@ def main(out_dir, num_nodes):
                             delta_norm,
                             patch_size
                         )
-    # Polarization runs
-    for model, encoding in [("FC_LATENCY", "LATENCY"), ("FC_LATENCY_XYLO", "LATENCY"),
-                            ("FC_DELTA_EXPOSURE", "DELTA_EXPOSURE"),
-                            ("FC_DELTA_EXPOSURE_XYLO", "DELTA_EXPOSURE")]:
-        for dataset in ["HERA_POLAR_FULL", "HERA_POLAR_DOP"]:
-            for delta_norm in [True, False]:
-                out_dir_temp = os.path.join(
-                    out_dir,
-                    "POLAR",
-                    model,
-                    encoding,
-                    dataset,
-                    "DELTA_NORM" if delta_norm else "ORIGINAL",
-                )
-                os.makedirs(out_dir_temp, exist_ok=True)
-                for patch_size in [8, 32, 64, 128, 256, 512]:
-                    write_bashfile(
-                        out_dir_temp,
-                        f"{dataset}-{encoding}",
-                        prepare_singlerun(
-                            model,
-                            encoding,
-                            dataset,
-                            delta_norm=delta_norm,
-                            num_nodes=num_nodes,
-                            patch_size=patch_size
-                        ),
-                    )
 
 
 if __name__ == "__main__":

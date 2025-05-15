@@ -62,7 +62,7 @@ def main(outdir: str):
             test_y[i],
             outdir,
             i,
-            f"LOFAR_DIVNORM_TEST"
+            f"HERA_DIVNORM_TEST"
         )
 
 
