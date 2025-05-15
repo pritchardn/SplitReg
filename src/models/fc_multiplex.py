@@ -93,4 +93,4 @@ class LitFcMultiplex(pl.LightningModule):
             outputs = self.output_bundles[i]
             inputs = self.input_bundles[i]
             output[..., outputs, :] = self._infer(x[..., inputs, :], i)
-        return output.moveaxis(0, 1)
+        return output.moveaxis(0, 1), []
