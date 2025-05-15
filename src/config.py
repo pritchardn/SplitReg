@@ -41,6 +41,18 @@ DEFAULT_HERA_LATENCY = {
     },
 }
 
+DEFAULT_HERA_LATENCY_8 = copy.deepcopy(DEFAULT_HERA_LATENCY)
+DEFAULT_HERA_LATENCY_8["data_source"]["patch_size"] = 8
+DEFAULT_HERA_LATENCY_8["data_source"]["stride"] = 8
+DEFAULT_HERA_LATENCY_8["model"]["num_inputs"] = 8
+DEFAULT_HERA_LATENCY_8["model"]["num_outputs"] = 8
+DEFAULT_HERA_LATENCY_8["model"]["num_hidden"] = 64
+DEFAULT_HERA_LATENCY_8["model"]["num_layers"] = 4
+DEFAULT_HERA_LATENCY_8["model"]["alpha"] = 0.1273135936989377
+DEFAULT_HERA_LATENCY_8["model"]["beta"] = 0.26147990022707174
+DEFAULT_HERA_LATENCY_8["model"]["fan_in_weighting"] = 0.042038463798513614
+DEFAULT_HERA_LATENCY_8["encoder"]["exposure"] = 62
+
 DEFAULT_HERA_LATENCY_64 = copy.deepcopy(DEFAULT_HERA_LATENCY)
 DEFAULT_HERA_LATENCY_64["data_source"]["patch_size"] = 64
 DEFAULT_HERA_LATENCY_64["data_source"]["stride"] = 64
@@ -504,6 +516,8 @@ def get_default_params(
             params = DEFAULT_HERA_LATENCY
             if patch_size == 32:
                 params = DEFAULT_HERA_LATENCY
+            elif patch_size == 8:
+                params = DEFAULT_HERA_LATENCY_8
             elif patch_size == 64:
                 params = DEFAULT_HERA_LATENCY_64
             elif patch_size == 128:
