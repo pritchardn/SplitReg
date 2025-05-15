@@ -78,7 +78,7 @@ def calculate_metrics(spike_file, dataset_file):
 
 
 def main():
-    for size in ["64", "128", "256", "512"]:
+    for size in ["8", "32", "64", "128", "256", "512"]:
         for x in range(10):
             root_dir = f"./snn-splitreg/FC_LATENCY/LATENCY/HERA/True/{size}/1.0/lightning_logs/version_{x}/"
             spike_file = "full_spike_recording.npy"
