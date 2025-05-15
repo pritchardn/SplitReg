@@ -128,6 +128,7 @@ def main_splitters(in_dirname: str, out_dirname: str, out_filename: str = "summa
 
 def main_process_supercomputer():
     for model, encoding, size in [
+        ("FC_LATENCY", "LATENCY", "8"),
         ("FC_LATENCY", "LATENCY", "32"),
         ("FC_LATENCY", "LATENCY", "64"),
         ("FC_LATENCY", "LATENCY", "128"),
@@ -138,7 +139,6 @@ def main_process_supercomputer():
         log_dir = f"lightning_logs{os.sep}"
         output_dir = f".{os.sep}"
         main(os.path.join(root_dir, log_dir), output_dir, f"{model}-{size}", limit=10)
-
 
 def main_process_custom():
     root_dir = (
