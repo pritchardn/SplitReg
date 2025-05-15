@@ -28,29 +28,12 @@ from data.data_module import ConfiguredDataModule
 from data.data_module_builder import DataModuleBuilder
 from data.spike_converters import (
     LatencySpikeConverter,
-    RateSpikeConverter,
-    DeltaSpikeConverter,
-    ForwardStepConverter,
-    NonConverter,
-    DirectSpikeConverter,
 )
-from data.spike_converters.delta_exposure_converter import DeltaExposureSpikeConverter
 from data.utils import reconstruct_patches
 from evaluation import final_evaluation
 from interfaces.data.raw_data_loader import RawDataLoader
 from interfaces.data.spiking_data_module import SpikeConverter
-from models.fc_ann import LitFcANN
-from models.fc_delta import LitFcDelta
-from models.fc_delta_exposure import LitFcDeltaExposure
-from models.fc_forwardstep import LitFcForwardStep
 from models.fc_latency import LitFcLatency
-from models.fc_rate import LitFcRate
-from models.fcp_ann import LitFcPANN
-from models.fcp_delta import LitFcPDelta
-from models.fcp_forwardstep import LitFcPForwardStep
-from models.fcp_latency import LitFcPLatency
-from models.fcp_rate import LitFcPRate
-from models.mh_latency import MHLitLatency
 
 
 def data_source_from_config(config: dict) -> RawDataLoader:
@@ -123,165 +106,6 @@ def model_from_config(config: dict) -> pl.LightningModule:
             max_fan_in=max_fan_in,
             max_connections_weighting=max_connections_weighting,
         )
-    elif model_type == "RNN_LATENCY":
-        model = LitFcLatency(
-            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=True
-        )
-    elif model_type == "FC_RATE":
-        model = LitFcRate(
-            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
-        )
-    elif model_type == "RNN_RATE":
-        model = LitFcRate(
-            num_inputs, num_hidden, num_outputs, beta, num_layers, l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=True
-        )
-    elif model_type == "FC_DELTA":
-        reconstruct_loss = config.get("reconstruct_loss")
-        model = LitFcDelta(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            beta,
-            alpha,
-            reconstruct_loss,
-            True,
-            num_layers,
-            l1_weighting,
-            l2_weighting,
-            fan_in_weighting,
-            max_connections_weighting,
-            max_fan_in,
-            max_connections,
-            recurrent=False,
-        )
-    elif model_type == "RNN_DELTA":
-        reconstruct_loss = config.get("reconstruct_loss")
-        model = LitFcDelta(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            beta,
-            alpha,
-            reconstruct_loss,
-            True,
-            num_layers,
-            l1_weighting,
-            l2_weighting,
-            fan_in_weighting,
-            max_connections_weighting,
-            max_fan_in,
-            max_connections,
-            recurrent=True,
-        )
-    elif model_type == "FC_DELTA_ON":
-        reconstruct_loss = config.get("reconstruct_loss")
-        model = LitFcDelta(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            beta,
-            alpha,
-            reconstruct_loss,
-            False,
-            num_layers,
-            l1_weighting,
-            l2_weighting,
-            fan_in_weighting,
-            max_connections_weighting,
-            max_fan_in,
-            max_connections,
-            recurrent=False,
-        )
-    elif model_type == "RNN_DELTA_ON":
-        reconstruct_loss = config.get("reconstruct_loss")
-        model = LitFcDelta(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            beta,
-            alpha,
-            reconstruct_loss,
-            False,
-            num_layers,
-            l1_weighting,
-            l2_weighting,
-            fan_in_weighting,
-            max_connections_weighting,
-            max_fan_in,
-            max_connections,
-            recurrent=False,
-        )
-    elif model_type == "FC_DELTA_EXPOSURE" or model_type == "FC_DELTA_EXPOSURE_XYLO":
-        model = LitFcDeltaExposure(
-            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
-            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting, max_fan_in, max_connections, recurrent=False
-        )
-    elif model_type == "RNN_DELTA_EXPOSURE":
-        model = LitFcDeltaExposure(
-            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
-            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
-            max_fan_in, max_connections, recurrent=True
-        )
-    elif model_type == "FC_FORWARD_STEP":
-        model = LitFcForwardStep(
-            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
-            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
-            max_fan_in, max_connections, recurrent=False
-        )
-    elif model_type == "RNN_FORWARD_STEP":
-        model = LitFcForwardStep(
-            num_inputs, num_hidden, num_outputs, beta, alpha, num_layers,
-            l1_weighting, l2_weighting, fan_in_weighting, max_connections_weighting,
-            max_fan_in, max_connections, recurrent=True
-        )
-    elif model_type == "FC_ANN":
-        model = LitFcANN(num_inputs, num_hidden, num_outputs, num_layers)
-    elif model_type == "FCP_ANN":
-        model = LitFcPANN(num_inputs, num_hidden, num_outputs, num_layers)
-    elif model_type == "FCP_LATENCY":
-        model = LitFcPLatency(num_inputs, num_hidden, num_outputs, beta, num_layers)
-    elif model_type == "FCP_RATE":
-        model = LitFcPRate(num_inputs, num_hidden, num_outputs, beta, num_layers)
-    elif model_type == "FCP_DELTA":
-        reconstruct_loss = config.get("reconstruct_loss")
-        model = LitFcPDelta(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            beta,
-            reconstruct_loss,
-            True,
-            num_layers,
-        )
-    elif model_type == "FCP_DELTA_ON":
-        reconstruct_loss = config.get("reconstruct_loss")
-        model = LitFcPDelta(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            beta,
-            reconstruct_loss,
-            False,
-            num_layers,
-        )
-    elif model_type == "FCP_FORWARD_STEP":
-        model = LitFcPForwardStep(num_inputs, num_hidden, num_outputs, beta, num_layers)
-    elif model_type == "MH_LATENCY":
-        alpha = config.get("alpha")
-        head_width = config.get("head_width")
-        head_stride = config.get("head_stride")
-        learning_rate = config.get("learning_rate")
-        model = MHLitLatency(
-            num_inputs,
-            num_hidden,
-            num_outputs,
-            alpha,
-            beta,
-            head_width,
-            head_stride,
-            num_hidden_layers,
-            learning_rate,
-        )
     else:
         raise NotImplementedError(f"Model type {model_type} is not supported.")
     return model
@@ -321,39 +145,6 @@ def encoder_from_config(config: dict) -> SpikeConverter:
         tau = config.get("tau")
         normalize = config.get("normalize")
         encoder = LatencySpikeConverter(exposure=exposure, tau=tau, normalize=normalize)
-    elif config.get("method") == "RATE":
-        exposure = config.get("exposure")
-        encoder = RateSpikeConverter(exposure=exposure)
-    elif config.get("method") == "DELTA":
-        threshold = config.get("threshold")
-        off_spikes = config.get("off_spikes")
-        encoder = DeltaSpikeConverter(threshold=threshold, off_spikes=off_spikes)
-    elif config.get("method") == "DELTA_EXPOSURE":
-        threshold = config.get("threshold")
-        exposure = config.get("exposure")
-        encoder = DeltaExposureSpikeConverter(threshold=threshold, exposure=exposure)
-    elif config.get("method") == "FORWARDSTEP":
-        threshold = config.get("threshold")
-        exposure = config.get("exposure")
-        tau = config.get("tau")
-        normalize = config.get("normalize")
-        exposure_mode = config.get("exposure_mode")
-        encoder = ForwardStepConverter(
-            threshold=threshold,
-            exposure=exposure,
-            tau=tau,
-            normalize=normalize,
-            exposure_mode=exposure_mode,
-        )
-    elif config.get("method") == "DIRECT":
-        exposure = config.get("exposure")
-        tau = config.get("tau")
-        normalize = config.get("normalize")
-        encoder = DirectSpikeConverter(exposure, tau=tau, normalize=normalize)
-    elif config.get("method") == "ANN":
-        encoder = NonConverter()
-    elif config.get("method") == "ANN_PATCHED":
-        encoder = NonConverter(patched=True)
     return encoder
 
 

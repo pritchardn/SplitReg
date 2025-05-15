@@ -51,24 +51,7 @@ def main(optuna_db):
 
 if __name__ == "__main__":
     OPTUNA_DB = os.getenv("OPTUNA_DB", None)
-    experiment_list = [
-        "SNN-SUPER-B-HERA-LATENCY-FC_LATENCY-100--False",
-        "SNN-SUPER-B-HERA-LATENCY-FC_LATENCY-100--True",
-        "SNN-SUPER-B-HERA-DELTA_EXPOSURE-FC_DELTA_EXPOSURE-100--False",
-        "SNN-SUPER-B-HERA-DELTA_EXPOSURE-FC_DELTA_EXPOSURE-100--True-True",
-        "SNN-SUPER-B-HERA-FORWARDSTEP-FC_FORWARD_STEP-100--direct-False",
-        "SNN-SUPER-B-HERA-FORWARDSTEP-FC_FORWARD_STEP-100--direct-True",
-        "SNN-SUPER-B-HERA-ANN-ANN-100-False",
-        "SNN-SUPER-B-HERA-ANN-ANN-100-True",
-        "SNN-SUPER-C-LOFAR-FORWARDSTEP-FC_FORWARD_STEP-15--direct-True",
-        "SNN-SUPER-C-LOFAR-FORWARDSTEP-FC_FORWARD_STEP-15--direct-False",
-        "SNN-SUPER-C-LOFAR-LATENCY-FC_LATENCY-15--True",
-        "SNN-SUPER-C-LOFAR-LATENCY-FC_LATENCY-15--False",
-        "SNN-SUPER-C-LOFAR-DELTA_EXPOSURE-FC_DELTA_EXPOSURE-15--True",
-        "SNN-SUPER-C-LOFAR-DELTA_EXPOSURE-FC_DELTA_EXPOSURE-15--False",
-        "SNN-SUPER-C-LOFAR-ANN-FC_ANN-15--True",
-        "SNN-SUPER-C-LOFAR-ANN-FC_ANN-15--False",
-    ]
+    experiment_list = []
     for experiment_name in tqdm(experiment_list):
         os.environ["STUDY_NAME"] = experiment_name
         main(OPTUNA_DB)

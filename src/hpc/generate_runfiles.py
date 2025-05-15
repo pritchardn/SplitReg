@@ -7,21 +7,6 @@ import os
 models = {
     "FC": [
         ("FC_LATENCY", "LATENCY"),
-        ("FC_RATE", "RATE"),
-        ("FC_DELTA", "DELTA"),
-        ("FC_FORWARD_STEP", "FORWARDSTEP"),
-        ("FC_DELTA_EXPOSURE", "DELTA_EXPOSURE"),
-        ("FC_ANN", "ANN"),
-        ("FC_DIRECT_LATENCY", "DIRECT"),
-    ],
-    "RNN": [
-        ("RNN_LATENCY", "LATENCY"),
-        ("RNN_RATE", "RATE"),
-        ("RNN_DELTA", "DELTA"),
-        ("RNN_FORWARD_STEP", "FORWARDSTEP"),
-    ],
-    "MH":[
-        ("MH_LATENCY", "LATENCY"),
     ]
 }
 datasets = ["HERA", "LOFAR"]
