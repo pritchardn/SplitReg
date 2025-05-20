@@ -64,4 +64,4 @@ def main(out_dir: str, in_dir: str, num_models=10):
 
 if __name__ == "__main__":
     in_dir = f"{scratch_path}/outputs/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/"
-    main(f"./src/hpc/pawsey/SPLITS", in_dir)
+    main(f"./src/hpc/SPLITS", in_dir)
