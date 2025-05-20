@@ -1,5 +1,11 @@
 # Maximal Split
-This work 
+This work demonstrates the training and splitting of SNNs for RFI detection in radio astronomy for inference on SynSense
+Xylo hardware. 
+Training in snnTorch, model manipulation in NIR before inference in Rockpool/Xylo demonstrates the usefuless of 
+recently developed interoperability tools.
+Energy estimates and on-hardware inference (if available) show power consumption per-chip of ~250 micro-watts.
+
+This codebase provides the ability to search for hyperparameters, train models, perform splitting and estimate energy usage. 
 
 ## Introduction
 
@@ -44,8 +50,27 @@ src/
 ├── optuna_main.py  # Main training file for optuna hyper-parameter trials
 ```
 ## Setup
-
+```bash
+python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+```
 ## Training
+For the purposes of this readme, we provide scripts to reproduce a complete trial from training, splitting and energy estimates.
+`hpc/generate_runfiles.py` can generate a complete set of slurm scripts to run all repeat trials; although this will be 
+exhaustive.
+
+To train:
+
+`python`
+
+To perform split inference
+
+`python`
+
+To generate energy estimates
+
+`python`
+
+
 
 ## License
 
