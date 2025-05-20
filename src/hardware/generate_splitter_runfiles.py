@@ -1,5 +1,9 @@
 import os
 
+scratch_path = "/scratch/pawsey0411/npritchard"
+software_path = "/software/projects/pawsey0411/npritchard/setonix/2023.08/python"
+hpc_account = "pawsey0411"
+
 PATCH_SIZES = [8, 32, 64, 128, 256, 512]
 CONVERSION_METHODS = ["maximal", "naive", "random"]
 
@@ -17,20 +21,20 @@ def prepare_conversion(target_dir: str, patch_size: int, conversion_method: str,
 #SBATCH --time=6:00:00
 #SBATCH --output=super_%A_%a.out
 #SBATCH --error=super_%A_%a.err
-#SBATCH --array=0-{num_models-1}
+#SBATCH --array=0-{num_models - 1}
 #SBATCH --partition=gpu
-#SBATCH --account=pawsey0411-gpu
+#SBATCH --account={hpc_account}-gpu
 #SBATCH --gres=gpu:1
-        
-export DATA_PATH="/scratch/pawsey0411/npritchard/data"
+
+export DATA_PATH="{scratch_path}/data"
 export BASE_DIR="{target_dir}"
 export PATCH_SIZE={patch_size}
 export CONVERSION_MODE={conversion_method}
 
 module load python/3.10.10
 
-cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SPLITREG/src
-source /software/projects/pawsey0411/npritchard/setonix/2023.08/python/snn-nln/bin/activate
+cd {sofware_path}/SNN-SPLITREG/src
+source {software_path}/snn-nln/bin/activate
 
 export FI_CXI_DEFAULT_VNI=$(od -vAn -N4 -tu < /dev/urandom)
 export MPICH_OFI_STARTUP_CONNECT=1
@@ -59,5 +63,5 @@ def main(out_dir: str, in_dir: str, num_models=10):
 
 
 if __name__ == "__main__":
-    in_dir = "/scratch/pawsey0411/npritchard/outputs/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/"
+    in_dir = f"{scratch_path}/outputs/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/"
     main(f"./src/hpc/pawsey/SPLITS", in_dir)
