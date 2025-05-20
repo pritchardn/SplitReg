@@ -41,7 +41,7 @@ class LitFcMultiplex(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        spike_hat = self(x)
+        spike_hat, _ = self(x)
         # Convert output to true output
         output_pred = self.converter.decode_inference(spike_hat.detach().cpu().numpy())
         accuracy, mse, auroc, auprc, f1 = calculate_metrics(
