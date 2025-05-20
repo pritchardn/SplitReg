@@ -12,6 +12,10 @@ models = {
 datasets = ["HERA"]
 delta_normalization = [True, False]
 
+scratch_path = "/scratch/pawsey0411/npritchard"
+software_path = "/software/projects/pawsey0411/[npritchard]/setonix/2023.08/python"
+hpc_account = "pawsey0411"
+
 
 def prepare_singlerun(
         model,
@@ -36,7 +40,7 @@ def prepare_singlerun(
 #SBATCH --error=super_%A_%a.err
 #SBATCH --array=0-9
 #SBATCH --partition=gpu
-#SBATCH --account=pawsey0411-gpu
+#SBATCH --account={hpc_account}-gpu
 
 export DATASET="{dataset}"
 export LIMIT="{limit}"
@@ -49,11 +53,11 @@ export PATCH_SIZE={patch_size}
 
 module load python/3.10.10
 
-cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SPLITREG/src
-source /software/projects/pawsey0411/npritchard/setonix/2023.08/python/snn-nln/bin/activate
+cd {software_path}/SNN-SPLITREG/src
+source {software_path}/snn-nln/bin/activate
 
-export DATA_PATH="/scratch/pawsey0411/npritchard/data"
-export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-splitreg/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{PATCH_SIZE}}/${{LIMIT}}"""
+export DATA_PATH="{scratch_path}/data"
+export OUTPUT_DIR="{scratch_path}/outputs/snn-splitreg/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{PATCH_SIZE}}/${{LIMIT}}"""
             + forward_step_directory
             + """
 export FI_CXI_DEFAULT_VNI=$(od -vAn -N4 -tu < /dev/urandom)
@@ -96,7 +100,7 @@ def prepare_optuna(
 #SBATCH --error=super_%A_%a.err
 #SBATCH --array=0-49%4
 #SBATCH --partition=gpu
-#SBATCH --account=pawsey0411-gpu
+#SBATCH --account={hpc_account}-gpu
 
 export DATASET="{dataset}"
 export LIMIT="{limit / 100}"
@@ -111,14 +115,14 @@ export EPOCHS=25
 
 module load python/3.10.10
 
-cd /software/projects/pawsey0411/npritchard/setonix/2023.08/python/SNN-SPLITREG/src
-source /software/projects/pawsey0411/npritchard/setonix/2023.08/python/snn-nln/bin/activate
+cd {software_path}/SNN-SPLITREG/src
+source {software_path}/snn-nln/bin/activate
 
-export DATA_PATH="/scratch/pawsey0411/npritchard/data"
+export DATA_PATH="{scratch_path}/data"
 export OPTUNA_DB=${{OPTUNA_URL}} # Need to change on super-computer before submitting\n"""
             + study_name
-            + """
-export OUTPUT_DIR="/scratch/pawsey0411/npritchard/outputs/snn-splitreg/optuna/${MODEL_TYPE}/${ENCODER_METHOD}/${DATASET}/${DELTA_NORMALIZATION}/${NUM_HIDDEN}/${LIMIT}"""
+            + f"""
+export OUTPUT_DIR="{scratch_path}/outputs/snn-splitreg/optuna/${{MODEL_TYPE}}/${{ENCODER_METHOD}}/${{DATASET}}/${{DELTA_NORMALIZATION}}/${{NUM_HIDDEN}}/${{LIMIT}}"""
             + forward_step_directory
             + """
 export FI_CXI_DEFAULT_VNI=$(od -vAn -N4 -tu < /dev/urandom)
