@@ -514,7 +514,7 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
 
 def main():
     for patch_size in [8, 32, 64, 128, 256, 512]:
-        base_dir = f"/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/{patch_size}/1.0/lightning_logs"
+        base_dir = f"./snn-splitreg/FC_LATENCY/LATENCY/HERA/True/{patch_size}/1.0/lightning_logs"
         plot = os.getenv("PLOT", False)
         for model_num in range(0, 10):
             input_patch_size = int(os.getenv("PATCH_SIZE"))
