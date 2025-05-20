@@ -11,7 +11,7 @@ from experiment import Experiment
 def main():
     model_type = os.getenv("MODEL_TYPE", "FC_LATENCY")
     dataset = os.getenv("DATASET", "HERA")
-    plot = os.getenv("PLOT", False) == "True"
+    plot = os.getenv("PLOT", True) == "True"
     delta_normalization = os.getenv("DELTA_NORMALIZATION", False) == "True"
     patch_size = int(os.getenv("PATCH_SIZE", 64))
     config = get_default_params(
