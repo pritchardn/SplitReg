@@ -13,7 +13,7 @@ datasets = ["HERA"]
 delta_normalization = [True, False]
 
 scratch_path = "/scratch/pawsey0411/npritchard"
-software_path = "/software/projects/pawsey0411/[npritchard]/setonix/2023.08/python"
+software_path = "/software/projects/pawsey0411/npritchard/setonix/2023.08/python"
 hpc_account = "pawsey0411"
 
 
