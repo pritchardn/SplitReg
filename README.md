@@ -56,6 +56,31 @@ src/
 python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
+### NB: Adjustments to NIR modules
+
+There is a slight inconsistency with how snnTorch writes out `tau_syn` and `tau_mem` values and how Rockpool reads them
+in from NIR. The fix is to manually override the read-in code on Rockpool's side to force a `dt=1e-4`, instead of inferring
+this value for each neuron.
+
+The file in question will be
+
+`.venv/lib/python3.10/site-packages/rockpool/nn/modules/torch/nir.py`
+
+With the adjustment at line `126`
+```python
+return LIFTorch(
+    shape=_to_tensor(node.input_type["input"]),
+    tau_mem=_to_tensor(node.tau_mem),
+    tau_syn=_to_tensor(node.tau_syn),
+    threshold=_to_tensor(node.v_threshold),
+    # dt=torch.min(
+    #     torch.as_tensor(_to_tensor(node.tau_mem / (1 + node.r)))
+    # ).item(),
+    dt = 1e-4,
+    bias=_to_tensor(node.v_leak),
+)
+```
+
 ### Dataset setup
 You will need to download a copy of the delta-normalized HERA dataset, [available from Zenodo](https://zenodo.org/records/14676274)
 
