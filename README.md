@@ -50,27 +50,70 @@ src/
 ├── optuna_main.py  # Main training file for optuna hyper-parameter trials
 ```
 ## Setup
+
+### Creating a venv environment
 ```bash
 python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
+
+### Dataset setup
+You will need to download a copy of the delta-normalized HERA dataset, [available from Zenodo](https://zenodo.org/records/14676274)
+
+The `HERA-21-11-2024_all_delta_norm.pkl` file should be moved into `./data`, as depicted above.
+
 ## Training
 For the purposes of this readme, we provide scripts to reproduce a complete trial from training, splitting and energy estimates.
 `hpc/generate_runfiles.py` can generate a complete set of slurm scripts to run all repeat trials; although this will be 
 exhaustive.
 
+We have provided a pre-trained example model, which will be used by default (trial 0).
+
 To train:
 
-`python`
+`python ./src/main.py`
 
 To perform split inference
 
-`python`
+`python ./src/splitter_main.py`
+
+Which will generate a separate `./lightning_logs/` file within the directory for each of the splitting methods.
 
 To generate energy estimates
 
-`python`
+`python ./src/post-processing/energy_estimates.py`
 
+Which will produce a file containing a json of results with several following fields:
+```
+- flops_per_layer               # The estimated FLOPs per network layer
+- spike_rates                   # The measured spike rates per layer 
+- energy_per_layer (J)          # Energy consumed per layer per inference
+- flops_per_layer_patch         # Flops per layer per spectrogram patch 
+- energy_per_layer_patch        # Energy per layer per spectrogram patch
+- spike_rates_patch             # Spike rates per layer per spectrogram patch
+- flops_per_patch               # Flops over the network per spectrogram patch
+- energy_per_patch (J)          # Energy consumed over the network per spectrogram patch
+- num_patches                   # Number of simultaneous chips required to infer over whole spectrogram
+- total_clock_steps             # Total number of clock ticks required for a total spectrogram (takes into account encoding length)
+- energy_per_spectrogram (J)    # Total energy per spectrogram  
+- total_time_default (s)        # Total time required to infer a spectrogram at the default clockspeed
+- default_clock_speed (Hz)      # The default clock speed of the Xylo hardware (50MHz)
+- total_time_min_rate (s)       # Total time required to infer a spectrogram at the slowest clock speed possible to match instrument integration time (3.52s)
+- min_clock_speed (Hz)          # Clock speed to match total_time_min_rate
+- watts_defualt (W)             # The estimated power usage at the default clock speed
+- watts_min (W)                 # The estimated power usage at the lowest possible clock speed
+```
 
+The main results being the `watts_default` and `watts_min`.
+If by chance, Xylo hardware is available, run the following to generate power estimates with real hardware:
+
+```bash
+export ROCKPOOL=True
+python ./src/post-processing/energy_estimates.py
+```
+
+These examples assume no prior training runs and default directory locations of `./lightning_logs/` and `./data` for the
+output files and data directory respectively. Adjustment of parameters in these respective files may be necessary if
+this is not the case.
 
 ## License
 
