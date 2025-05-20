@@ -120,7 +120,7 @@ def plot_example(x, y, spike_x, frequency_width, stride, exposure, i, title: str
 
 
 def setup_config(model, exposure, exposure_mode, stride):
-    config = get_default_params("HERA", model, 128, exposure_mode, patch_size=128)
+    config = get_default_params("HERA", model, True, patch_size=128)
     frequency_width = stride
     config["encoder"]["exposure"] = exposure
     return config, frequency_width, exposure

@@ -153,8 +153,6 @@ DEFAULT_HERA_LATENCY_DIVNORM["data_source"]["delta_normalization"] = True
 def get_default_params(
         dataset: str,
         model_type: str,
-        model_size: int = 128,
-        exposure_mode: str = None,
         delta_normalization: bool = False,
         patch_size: int = 32,
 ):
