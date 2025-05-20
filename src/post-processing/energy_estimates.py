@@ -6,16 +6,19 @@ from rockpool.devices.xylo.syns65302.xylo_monitor import Default_Main_Clock_Rate
 E_AC = 9e-13
 SPECTROGRAM_TIME = 512
 DEFAULT_CLOCK_SPEED = Default_Main_Clock_Rate * 1e6  # Hz
-INTEGRATION_TIME = 3.52 # Seconds
+INTEGRATION_TIME = 3.52  # Seconds
+
 
 def open_spike_file(spike_file) -> np.ndarray:
     # Open spike_file with numpy
     return np.load(spike_file)
 
+
 def open_dataset_file(dataset_file) -> dict:
     # Open dataset_file with json
     with open(dataset_file, "r") as f:
         return json.load(f)
+
 
 def calculate_power_metrics(spike_recording, dataset_info) -> dict:
     # Calculate metrics
@@ -33,9 +36,9 @@ def calculate_power_metrics(spike_recording, dataset_info) -> dict:
     flops_per_layer = np.asarray(flops_per_layer)
     spike_rates = total_spike_counts / num_neurons / dataset_info["num_samples"]
     energy_per_layer = np.array(flops_per_layer) * E_AC * spike_rates
-    flops_per_layer_patch  = flops_per_layer #  * dataset_info["stride"]
-    energy_per_layer_patch =  energy_per_layer #  * dataset_info["stride"]
-    spike_rates_patch = spike_rates #  * dataset_info["stride"]
+    flops_per_layer_patch = flops_per_layer  # * dataset_info["stride"]
+    energy_per_layer_patch = energy_per_layer  # * dataset_info["stride"]
+    spike_rates_patch = spike_rates  # * dataset_info["stride"]
     flops_per_patch = np.sum(flops_per_layer_patch)
     energy_per_patch = np.sum(energy_per_layer_patch)
     time_per_patch = flops_per_patch / DEFAULT_CLOCK_SPEED
@@ -58,14 +61,20 @@ def calculate_power_metrics(spike_recording, dataset_info) -> dict:
     # Calculate W at min rate
     watts_min = energy_per_spectrogram / total_time_min_rate
 
-    return {"flops_per_layer": flops_per_layer.tolist(), "spike_rates": spike_rates.tolist(), "energy_per_layer": energy_per_layer.tolist(),
-            "flops_per_layer_patch": flops_per_layer_patch.tolist(), "energy_per_layer_patch": energy_per_layer_patch.tolist(),
-            "spike_rates_patch": spike_rates_patch.tolist(), "flops_per_patch": int(flops_per_patch), "energy_per_patch": float(energy_per_patch),
-            "num_patches": num_patches, "total_clock_steps": total_clock_steps, "energy_per_spectrogram": energy_per_spectrogram,
-            "total_time_default": total_time_default, "total_time_min_rate": total_time_min_rate, "min_clock_speed": min_clock_speed,
+    return {"flops_per_layer": flops_per_layer.tolist(), "spike_rates": spike_rates.tolist(),
+            "energy_per_layer": energy_per_layer.tolist(),
+            "flops_per_layer_patch": flops_per_layer_patch.tolist(),
+            "energy_per_layer_patch": energy_per_layer_patch.tolist(),
+            "spike_rates_patch": spike_rates_patch.tolist(), "flops_per_patch": int(flops_per_patch),
+            "energy_per_patch": float(energy_per_patch),
+            "num_patches": num_patches, "total_clock_steps": total_clock_steps,
+            "energy_per_spectrogram": energy_per_spectrogram,
+            "total_time_default": total_time_default, "total_time_min_rate": total_time_min_rate,
+            "min_clock_speed": min_clock_speed,
             "default_clock_speed": DEFAULT_CLOCK_SPEED,
             "watts_default": watts_default, "watts_min": watts_min
             }
+
 
 def calculate_metrics(spike_file, dataset_file):
     # Open spike_file with numpy
@@ -89,5 +98,23 @@ def main():
             with open(os.path.join(root_dir, "power_metrics.json"), "w") as f:
                 json.dump(metrics, f)
 
+
+def main_single():
+    size = "64"
+    version_num = 0
+    root_dir = f"./lightning_logs/version_{version_num}"
+    spike_file = "full_spike_recording.npy"
+    dataset_file = "dataset_info.json"
+    print(root_dir)
+    metrics = calculate_metrics(os.path.join(root_dir, spike_file), os.path.join(root_dir, dataset_file))
+    print(metrics)
+    with open(os.path.join(root_dir, "power_metrics.json"), "w") as f:
+        json.dump(metrics, f)
+
+
 if __name__ == "__main__":
-    main()
+    multi_trial = os.getenv("MULTI_TRIAL", False)
+    if multi_trial:
+        main()
+    else:
+        main_single()

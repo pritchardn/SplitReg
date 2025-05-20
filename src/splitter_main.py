@@ -514,9 +514,9 @@ def test_split(output_dir: str, model_file_path: str, config_file_path: str, pat
 
 def main():
     for patch_size in [8, 32, 64, 128, 256, 512]:
-        base_dir = f"/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY_REG/LATENCY/HERA/True/{patch_size}/1.0/lightning_logs"
+        base_dir = f"/Users/npritchard/PycharmProjects/SplitReg/snn-splitreg/FC_LATENCY/LATENCY/HERA/True/{patch_size}/1.0/lightning_logs"
         plot = os.getenv("PLOT", False)
-        for model_num in range(1, 10):
+        for model_num in range(0, 10):
             input_patch_size = int(os.getenv("PATCH_SIZE"))
             limit = float(os.getenv("LIMIT", 1.0))
             rockpool_test = os.getenv("ROCKPOOL", False) == "True"
@@ -532,6 +532,31 @@ def main():
                     print(model_file_path)
                     test_split(output_dir, model_file_path, config_file_path, input_patch_size, conversion_mode, data_path, limit, rockpool_test, plot, frequency)
 
+def main_single():
+    patch_size = 64
+    base_dir = f"./lightning_logs"
+    plot = False
+    input_patch_size = patch_size
+    limit = 1.0
+    rockpool_test = False
+    model_num = 0
+    for conversion_mode in ["maximal", "naive", "random"]:
+        for frequency in [50, 6.25]:
+            data_path = os.getenv("DATA_PATH", "./data")
+            model_dir = os.path.join(base_dir, f"version_{model_num}")
+            output_dir = os.path.join(model_dir, "splits-test")
+            os.makedirs(output_dir, exist_ok=True)
+            model_file_path = os.path.join(model_dir, "model.nir")
+            config_file_path = os.path.join(model_dir, "config.json")
+            print(output_dir)
+            print(model_file_path)
+            test_split(output_dir, model_file_path, config_file_path, input_patch_size, conversion_mode, data_path,
+                       limit, rockpool_test, plot, frequency)
+
 
 if __name__ == "__main__":
-    main()
+    multi_trial = os.getenv("MULTI_TRIAL", False)
+    if multi_trial:
+        main()
+    else:
+        main_single()
