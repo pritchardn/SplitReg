@@ -141,16 +141,6 @@ def final_evaluation(
             f"final_patch_{i}",
             outdir
         )
-        plot_example_raster(
-            inference[i],
-            32,
-            32,
-            exposure,
-            i,
-            f"final_patch",
-            mode=1,
-            outdir=outdir
-        )
 
 
 def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray):
